@@ -2,6 +2,7 @@ package com.alibaba.cloud.ai.crawler.controller;
 
 import com.alibaba.cloud.ai.plugin.crawler.entity.JinaResponse;
 import com.alibaba.cloud.ai.plugin.crawler.service.CrawlerService;
+import com.alibaba.cloud.ai.plugin.crawler.service.impl.CrawlerJinaServiceImpl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -22,7 +23,7 @@ public class CrawlerJinaController {
 
 	private final ObjectMapper objectMapper;
 
-	private CrawlerJinaController(CrawlerService jinaService, ObjectMapper objectMapper) {
+	private CrawlerJinaController(CrawlerJinaServiceImpl jinaService, ObjectMapper objectMapper) {
 		this.jinaService = jinaService;
 		this.objectMapper = objectMapper;
 	}
