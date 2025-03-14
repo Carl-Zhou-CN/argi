@@ -55,8 +55,6 @@
 			<artifactId>spring-ai-alibaba-core</artifactId>
 			<version>${revision}</version>
 		</dependency>
-
-
 	</dependencies>
 
 </project>
