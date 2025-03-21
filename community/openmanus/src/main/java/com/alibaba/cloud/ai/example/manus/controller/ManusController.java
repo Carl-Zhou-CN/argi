@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.example.manus;
+package com.alibaba.cloud.ai.example.manus.controller;
 
 import com.alibaba.cloud.ai.example.manus.flow.PlanningFlow;
 
