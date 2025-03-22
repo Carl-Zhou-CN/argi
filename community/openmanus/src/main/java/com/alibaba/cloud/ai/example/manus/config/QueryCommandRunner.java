@@ -13,24 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.alibaba.cloud.ai.example.manus;
+package com.alibaba.cloud.ai.example.manus.config;
 
 import java.util.Scanner;
 
 import com.alibaba.cloud.ai.example.manus.flow.PlanningFlow;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class QueryCommandRunner implements CommandLineRunner {
 
-	@Autowired
-	private PlanningFlow planningFlow;
+	private final PlanningFlow planningFlow;
+
+	public QueryCommandRunner(PlanningFlow planningFlow) {
+		this.planningFlow = planningFlow;
+	}
 
 	@Override
 	public void run(String... args) throws Exception {
+
 		Scanner scanner = new Scanner(System.in);
 		String query = scanner.next();
 
