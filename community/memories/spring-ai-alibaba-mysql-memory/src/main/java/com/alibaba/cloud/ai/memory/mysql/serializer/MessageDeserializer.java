@@ -30,6 +30,7 @@ import org.springframework.ai.model.Media;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 public class MessageDeserializer extends JsonDeserializer<Message> {
@@ -48,7 +49,13 @@ public class MessageDeserializer extends JsonDeserializer<Message> {
 						mapper.convertValue(node.get("media"), new TypeReference<Collection<Media>>() {
 						}), mapper.convertValue(node.get("metadata"), new TypeReference<Map<String, Object>>() {
 						}));
-				case "ASSISTANT" -> message = new AssistantMessage(node.get("text").asText());
+				case "ASSISTANT" -> message = new AssistantMessage(node.get("text").asText(),
+						mapper.convertValue(node.get("metadata"), new TypeReference<Map<String, Object>>() {
+						}), (List<AssistantMessage.ToolCall>) mapper.convertValue(node.get("toolCalls"),
+								new TypeReference<Collection<AssistantMessage.ToolCall>>() {
+								}),
+						(List<Media>) mapper.convertValue(node.get("media"), new TypeReference<Collection<Media>>() {
+						}));
 				default -> throw new IllegalArgumentException("Unknown message type: " + messageType);
 			}
 			;
