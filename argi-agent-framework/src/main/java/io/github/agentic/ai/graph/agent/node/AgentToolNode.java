@@ -659,6 +659,12 @@ public class AgentToolNode implements NodeActionWithConfig {
 			config.assertExecutionActive();
 			Map<String, Object> toolContextMap = new HashMap<>(toolContext);
 			toolContextMap.putAll(req.getContext());
+			// Framework context keys are authoritative and must never be supplied by
+			// RunnableConfig metadata, interceptor rewrites or model-controlled input.
+			toolContextMap.remove(AGENT_STATE_CONTEXT_KEY);
+			toolContextMap.remove(AGENT_CONFIG_CONTEXT_KEY);
+			toolContextMap.remove(AGENT_STATE_FOR_UPDATE_CONTEXT_KEY);
+			toolContextMap.put(AGENT_CONFIG_CONTEXT_KEY, config);
 
 			// Handle tools that need state injection:
 			// - StateAwareToolCallback (including AsyncToolCallback)
@@ -666,8 +672,8 @@ public class AgentToolNode implements NodeActionWithConfig {
 			// - MethodToolCallback
 			if (toolCallback instanceof StateAwareToolCallback || toolCallback instanceof FunctionToolCallback<?, ?>
 					|| toolCallback instanceof MethodToolCallback) {
-				toolContextMap.putAll(Map.of(AGENT_STATE_CONTEXT_KEY, state, AGENT_CONFIG_CONTEXT_KEY, config,
-						AGENT_STATE_FOR_UPDATE_CONTEXT_KEY, extraStateFromToolCall));
+				toolContextMap.putAll(Map.of(AGENT_STATE_CONTEXT_KEY, state, AGENT_STATE_FOR_UPDATE_CONTEXT_KEY,
+						extraStateFromToolCall));
 			}
 
 			// Route to async or sync execution based on callback type

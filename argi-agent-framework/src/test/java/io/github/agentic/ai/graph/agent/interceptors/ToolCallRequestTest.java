@@ -15,6 +15,9 @@
  */
 package io.github.agentic.ai.graph.agent.interceptors;
 
+import io.github.agentic.ai.graph.OverAllState;
+import io.github.agentic.ai.graph.RunnableConfig;
+import io.github.agentic.ai.graph.agent.interceptor.ToolCallExecutionContext;
 import io.github.agentic.ai.graph.agent.interceptor.ToolCallRequest;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -122,8 +126,10 @@ class ToolCallRequestTest {
 	void builderFromExistingRequest_copiesAllFields() {
 		Map<String, Object> context = new HashMap<>();
 		context.put("key", "value");
+		ToolCallExecutionContext executionContext = new ToolCallExecutionContext(RunnableConfig.builder().build(),
+				new OverAllState());
 
-		ToolCallRequest original = new ToolCallRequest("tool1", "{}", "id-1", context);
+		ToolCallRequest original = new ToolCallRequest("tool1", "{}", "id-1", context, executionContext);
 
 		ToolCallRequest copy = ToolCallRequest.builder(original).build();
 
@@ -131,6 +137,7 @@ class ToolCallRequestTest {
 		assertEquals(original.getArguments(), copy.getArguments());
 		assertEquals(original.getToolCallId(), copy.getToolCallId());
 		assertEquals(original.getContext().get("key"), copy.getContext().get("key"));
+		assertSame(executionContext, copy.getExecutionContext().orElseThrow());
 	}
 
 	@Test
