@@ -69,7 +69,8 @@ public class ToolCallRequest {
 				.toolName(request.toolName)
 				.arguments(request.arguments)
 				.toolCallId(request.toolCallId)
-				.context(request.context);
+				.context(request.context)
+				.executionContext(request.executionContext);
 	}
 
 	public String getToolName() {
@@ -136,4 +137,3 @@ public class ToolCallRequest {
 		}
 	}
 }
-
