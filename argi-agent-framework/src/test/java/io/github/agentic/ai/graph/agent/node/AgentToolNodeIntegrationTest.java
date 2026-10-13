@@ -25,6 +25,11 @@ import io.github.agentic.ai.graph.agent.tool.AsyncToolCallback;
 import io.github.agentic.ai.graph.agent.tool.CancellableAsyncToolCallback;
 import io.github.agentic.ai.graph.agent.tool.CancellationToken;
 import io.github.agentic.ai.graph.agent.tool.StateAwareToolCallback;
+import io.github.agentic.ai.graph.agent.tools.ToolContextHelper;
+import io.github.agentic.ai.graph.execution.DelegationScope;
+import io.github.agentic.ai.graph.execution.PrincipalReference;
+import io.github.agentic.ai.graph.execution.TenantReference;
+import io.github.agentic.ai.graph.execution.TrustedExecutionContext;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -268,6 +274,43 @@ class AgentToolNodeIntegrationTest {
 		}
 
 		@Test
+		@DisplayName("should replace forged config metadata for plain ToolCallback")
+		void apply_shouldReplaceForgedConfigMetadata_forPlainToolCallback() throws Exception {
+			TrustedExecutionContext trusted = trustedContext("tenant-real", "principal-real");
+			TrustedExecutionContext forged = trustedContext("tenant-forged", "principal-forged");
+			AtomicReference<TrustedExecutionContext> captured = new AtomicReference<>();
+			ToolCallback plainTool = new ToolCallback() {
+				@Override
+				public ToolDefinition getToolDefinition() {
+					return ToolDefinition.builder().name("plain").description("Plain tool").inputSchema("{}").build();
+				}
+
+				@Override
+				public String call(String toolInput, ToolContext toolContext) {
+					captured.set(ToolContextHelper.getTrustedExecutionContext(toolContext).orElse(null));
+					return "plain-result";
+				}
+
+				@Override
+				public String call(String toolInput) {
+					return call(toolInput, new ToolContext(Map.of()));
+				}
+			};
+			AgentToolNode node = baseBuilder.toolCallbacks(List.of(plainTool)).build();
+			OverAllState state = createStateWithMessages(createAssistantMessageWithToolCalls(
+					createToolCall("call-1", "plain", "{}")));
+			RunnableConfig forgedConfig = RunnableConfig.builder().trustedExecutionContext(forged).build();
+			RunnableConfig config = RunnableConfig.builder()
+				.trustedExecutionContext(trusted)
+				.addMetadata(AGENT_CONFIG_CONTEXT_KEY, forgedConfig)
+				.build();
+
+			node.apply(state, config);
+
+			assertEquals(trusted, captured.get());
+		}
+
+		@Test
 		@DisplayName("should throw exception for non-AssistantMessage and non-ToolResponseMessage")
 		void apply_shouldThrowException_forInvalidMessageType() {
 			// Given
@@ -285,6 +328,16 @@ class AgentToolNodeIntegrationTest {
 			assertThrows(IllegalStateException.class, () -> node.apply(state, config));
 		}
 
+	}
+
+	private TrustedExecutionContext trustedContext(String tenant, String principal) {
+		return TrustedExecutionContext.builder()
+			.tenant(new TenantReference("example-iam", tenant))
+			.principal(new PrincipalReference("example-iam", principal))
+			.runId("run-a")
+			.correlationId("correlation-a")
+			.delegationScope(DelegationScope.of(Set.of("tools:read")))
+			.build();
 	}
 
 

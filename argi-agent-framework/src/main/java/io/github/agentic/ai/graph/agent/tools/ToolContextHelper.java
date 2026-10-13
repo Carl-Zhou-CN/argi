@@ -17,6 +17,7 @@ package io.github.agentic.ai.graph.agent.tools;
 
 import io.github.agentic.ai.graph.OverAllState;
 import io.github.agentic.ai.graph.RunnableConfig;
+import io.github.agentic.ai.graph.execution.TrustedExecutionContext;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.lang.Nullable;
 
@@ -77,6 +78,17 @@ public final class ToolContextHelper {
 			return Optional.empty();
 		}
 		return getMetadata(toolContext, ToolContextConstants.AGENT_CONFIG_CONTEXT_KEY, RunnableConfig.class);
+	}
+
+	/**
+	 * Get trusted identity facts from the framework-injected {@link RunnableConfig}.
+	 * Arbitrary ToolContext entries and ordinary metadata are never interpreted as trusted
+	 * identity.
+	 * @param toolContext the tool context
+	 * @return the explicitly attached trusted execution context, if present
+	 */
+	public static Optional<TrustedExecutionContext> getTrustedExecutionContext(@Nullable ToolContext toolContext) {
+		return getConfig(toolContext).flatMap(RunnableConfig::trustedExecutionContext);
 	}
 
 	/**
