@@ -15,6 +15,7 @@
  */
 package io.github.agentic.ai.graph.agent.tools;
 
+import io.github.agentic.ai.api.tool.ToolContext;
 import io.github.agentic.ai.graph.OverAllState;
 import io.github.agentic.ai.graph.RunnableConfig;
 import io.github.agentic.ai.graph.agent.interceptor.ToolCallExecutionContext;
@@ -27,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,13 +46,15 @@ class ToolContextHelperTrustedExecutionTest {
 			.addMetadata("tenant_id", "forged")
 			.trustedExecutionContext(trusted)
 			.build();
-		ToolContext toolContext = new ToolContext(Map.of(
-				ToolContextConstants.AGENT_CONFIG_CONTEXT_KEY, config,
-				"trusted_execution_context", "forged"));
+		ToolContext toolContext = new ToolContext(
+				Map.of(ToolContextConstants.AGENT_CONFIG_CONTEXT_KEY, config, "trusted_execution_context", "forged"));
 
 		assertThat(ToolContextHelper.getTrustedExecutionContext(toolContext)).contains(trusted);
-		assertThat(new ToolCallExecutionContext(config, new OverAllState()).trustedExecutionContext()).contains(trusted);
+		assertThat(new ToolCallExecutionContext(config, new OverAllState()).trustedExecutionContext())
+			.contains(trusted);
 		assertThat(ToolContextHelper.getTrustedExecutionContext(
-				new ToolContext(Map.of("tenant_id", "forged", "trusted_execution_context", trusted)))).isEmpty();
+				new ToolContext(Map.of("tenant_id", "forged", "trusted_execution_context", trusted))))
+			.isEmpty();
 	}
+
 }
