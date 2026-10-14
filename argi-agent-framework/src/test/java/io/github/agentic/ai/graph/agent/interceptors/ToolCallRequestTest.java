@@ -15,10 +15,11 @@
  */
 package io.github.agentic.ai.graph.agent.interceptors;
 
+import io.github.agentic.ai.graph.agent.interceptor.ToolCallRequest;
+import io.github.agentic.ai.api.chat.ToolCall;
 import io.github.agentic.ai.graph.OverAllState;
 import io.github.agentic.ai.graph.RunnableConfig;
 import io.github.agentic.ai.graph.agent.interceptor.ToolCallExecutionContext;
-import io.github.agentic.ai.graph.agent.interceptor.ToolCallRequest;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -126,9 +127,9 @@ class ToolCallRequestTest {
 	void builderFromExistingRequest_copiesAllFields() {
 		Map<String, Object> context = new HashMap<>();
 		context.put("key", "value");
-		ToolCallExecutionContext executionContext = new ToolCallExecutionContext(RunnableConfig.builder().build(),
-				new OverAllState());
 
+		ToolCallExecutionContext executionContext = new ToolCallExecutionContext(
+				RunnableConfig.builder().threadId("thread-1").build(), new OverAllState());
 		ToolCallRequest original = new ToolCallRequest("tool1", "{}", "id-1", context, executionContext);
 
 		ToolCallRequest copy = ToolCallRequest.builder(original).build();
@@ -137,7 +138,9 @@ class ToolCallRequestTest {
 		assertEquals(original.getArguments(), copy.getArguments());
 		assertEquals(original.getToolCallId(), copy.getToolCallId());
 		assertEquals(original.getContext().get("key"), copy.getContext().get("key"));
+		assertNotSame(original.getContext(), copy.getContext());
 		assertSame(executionContext, copy.getExecutionContext().orElseThrow());
+		assertEquals("thread-1", copy.getExecutionContext().orElseThrow().threadId().orElseThrow());
 	}
 
 	@Test
@@ -148,7 +151,9 @@ class ToolCallRequestTest {
 
 		ToolCallRequest original = new ToolCallRequest("tool1", "{}", "id-1", context);
 
-		ToolCallRequest modified = ToolCallRequest.builder(original).toolName("tool2").arguments("{\"new\": true}")
+		ToolCallRequest modified = ToolCallRequest.builder(original)
+			.toolName("tool2")
+			.arguments("{\"new\": true}")
 			.build();
 
 		assertEquals("tool2", modified.getToolName());
@@ -159,20 +164,14 @@ class ToolCallRequestTest {
 	@Test
 	@DisplayName("from() factory method should create request from ToolCall")
 	void fromFactory_createsRequest_fromToolCall() {
-		// Create a mock-like structure for testing
-		// Using the builder to verify the factory method behavior
-		ToolCallRequest request = ToolCallRequest.builder()
-			.toolName("factoryTool")
-			.arguments("{\"test\": true}")
-			.toolCallId("factory-id")
-			.context(new HashMap<>())
-			.build();
+		ToolCallRequest request = ToolCallRequest.from(new ToolCall("factory-id", "factoryTool", "{\"test\": true}"));
 
 		assertNotNull(request);
 		assertEquals("factoryTool", request.getToolName());
 		assertEquals("{\"test\": true}", request.getArguments());
 		assertEquals("factory-id", request.getToolCallId());
 		assertTrue(request.getContext().isEmpty());
+		assertTrue(request.getExecutionContext().isEmpty());
 	}
 
 	@Test
