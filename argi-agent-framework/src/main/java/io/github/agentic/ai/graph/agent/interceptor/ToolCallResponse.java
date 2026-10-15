@@ -33,6 +33,7 @@ public class ToolCallResponse {
 
 	public final static String SUCCESS_STATUS = "SUCCESS";
 
+	/** Status of an error response; see {@link ToolOutcome} for the full outcome vocabulary. */
 	public static final String ERROR_STATUS = "error";
 
 	/**
@@ -99,23 +100,31 @@ public class ToolCallResponse {
 				result.error() ? ERROR_STATUS : SUCCESS_STATUS, result.metadata());
 	}
 
+	/**
+	 * Creates a response without an explicit status. Kept for backward compatibility;
+	 * new code should use {@link #success(String, String, String)} or one of the
+	 * {@code error} factories so the outcome is machine-readable (see {@link ToolOutcome}).
+	 * @param toolCallId the tool call ID
+	 * @param toolName the tool name
+	 * @param result the response content
+	 * @return a new ToolCallResponse with no status set
+	 */
 	public static ToolCallResponse of(String toolCallId, String toolName, String result) {
 		return new ToolCallResponse(result, toolName, toolCallId);
 	}
 
-	/**
-	 * <p>
-	 * Rewrite the status field of the source code to SUCCESS, and then make a judgment in
-	 * the tool interceptor
-	 * </p>
-	 * @param toolCallId toolCallId
-	 * @param toolName toolName
-	 * @param result response
-	 * @return
-	 */
-	public static ToolCallResponse success(String toolCallId, String toolName, String result) {
-		return new ToolCallResponse(result, toolName, toolCallId, SUCCESS_STATUS, null);
-	}
+    /**
+     *  <p>
+     *   Rewrite the status field of the source code to SUCCESS, and then make a judgment in the tool interceptor
+     *  </p>
+     * @param toolCallId toolCallId
+     * @param toolName   toolName
+     * @param result     response
+     * @return
+     */
+    public static ToolCallResponse success(String toolCallId, String toolName, String result) {
+        return new ToolCallResponse(result, toolName, toolCallId, SUCCESS_STATUS, null);
+    }
 
 	/**
 	 * Creates an error response for a failed tool execution.
