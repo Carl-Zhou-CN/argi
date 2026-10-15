@@ -153,6 +153,23 @@ class AgentToolNodeFailureMetadataTest {
 
 	@Test
 	@Timeout(value = 10, unit = TimeUnit.SECONDS)
+	@DisplayName("async failed future is marked as an error with the same status contract as the sync path")
+	void asyncFailedFutureReportsErrorAndWrappedType() throws Exception {
+		Tool wrapped = asyncTool("asyncWrappedTool", Duration.ofSeconds(5),
+				() -> CompletableFuture.failedFuture(
+						new CompletionException(new IllegalArgumentException("bad async argument"))));
+
+		ToolCallResponse response = runSingleTool(wrapped, "asyncWrappedTool", false);
+
+		assertThat(response.getStatus()).isEqualTo(ToolCallResponse.ERROR_STATUS);
+		assertThat(response.isError()).isTrue();
+		assertThat(response.getResult()).contains("bad async argument");
+		assertThat(response.getFailureKind()).contains(ToolCallResponse.FAILURE_KIND_EXECUTION);
+		assertThat(response.getExceptionType()).contains(IllegalArgumentException.class.getName());
+	}
+
+	@Test
+	@Timeout(value = 10, unit = TimeUnit.SECONDS)
 	@DisplayName("unresolved tool name is reported as failureKind=unresolved without exception type")
 	void unresolvedToolCarriesUnresolvedKind() throws Exception {
 		Tool other = syncTool("otherTool", () -> "ok");
