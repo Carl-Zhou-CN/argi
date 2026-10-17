@@ -16,15 +16,16 @@
 
 package com.alibaba.cloud.ai.toolcalling.baidutranslate;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.alibaba.cloud.ai.toolcalling.common.JsonParseTool;
+import com.alibaba.cloud.ai.toolcalling.common.RestClientTool;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Description;
+import org.springframework.web.client.ResponseErrorHandler;
+import org.springframework.web.client.RestClient;
 
 /**
  * @author SCMRCORE
@@ -36,15 +37,12 @@ import org.springframework.context.annotation.Description;
 		matchIfMissing = true)
 public class BaiduTranslateAutoConfiguration {
 
-	private static final Logger logger = LoggerFactory.getLogger(BaiduTranslateAutoConfiguration.class);
-
 	@Bean
 	@ConditionalOnMissingBean
 	@Description("Baidu translation function for general text translation")
-	public BaidutranslateService baiduTranslateFunction(BaiduTranslateProperties properties) {
+	public BaiduTranslateService baiduTranslate(BaiduTranslateProperties properties, JsonParseTool jsonParseTool) {
 
-		logger.debug("Initializing Baidu translation function bean");
-		return new BaidutranslateService(properties);
+		return new BaiduTranslateService(properties, new RestClientTool(jsonParseTool, properties), jsonParseTool);
 	}
 
 }
