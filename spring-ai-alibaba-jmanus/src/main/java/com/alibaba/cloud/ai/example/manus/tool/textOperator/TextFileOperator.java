@@ -15,20 +15,21 @@
  */
 package com.alibaba.cloud.ai.example.manus.tool.textOperator;
 
-import java.io.*;
-import java.nio.channels.FileChannel;
-import java.nio.file.*;
-import java.util.Map;
-
 import com.alibaba.cloud.ai.example.manus.tool.AbstractBaseTool;
+import com.alibaba.cloud.ai.example.manus.tool.ToolPromptManager;
 import com.alibaba.cloud.ai.example.manus.tool.code.ToolExecuteResult;
 import com.alibaba.cloud.ai.example.manus.tool.innerStorage.SmartContentSavingService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.openai.api.OpenAiApi;
+
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Map;
 
 public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFileInput> {
 
@@ -125,147 +126,17 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 	private final ObjectMapper objectMapper;
 
+	private final ToolPromptManager toolPromptManager;
+
 	public TextFileOperator(TextFileService textFileService, SmartContentSavingService innerStorageService,
-			ObjectMapper objectMapper) {
+			ObjectMapper objectMapper, ToolPromptManager toolPromptManager) {
 		this.textFileService = textFileService;
 		this.innerStorageService = innerStorageService;
 		this.objectMapper = objectMapper;
+		this.toolPromptManager = toolPromptManager;
 	}
-
-	private final String PARAMETERS = """
-			{
-			    "oneOf": [
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": {
-			                    "type": "string",
-			                    "const": "replace"
-			                },
-			                "file_path": {
-			                    "type": "string",
-			                    "description": "要操作的文件路径"
-			                },
-			                "source_text": {
-			                    "type": "string",
-			                    "description": "要被替换的文本"
-			                },
-			                "target_text": {
-			                    "type": "string",
-			                    "description": "替换后的文本"
-			                }
-			            },
-			            "required": ["action", "file_path", "source_text", "target_text"],
-			            "additionalProperties": false
-			        },		        {
-			           "type": "object",
-			           "properties": {
-			               "action": {
-			                   "type": "string",
-			                   "const": "get_text"
-			               },
-			               "file_path": {
-			                   "type": "string",
-			                   "description": "要读取的文件路径"
-			               },
-			               "start_line": {
-			                   "type": "integer",
-			                   "description": "起始行号（从1开始）"
-			               },
-			               "end_line": {
-			                   "type": "integer",
-			                   "description": "结束行号（包含该行）。注意：单次最多返回500行，可多次调用获取更多内容"
-			               }
-			           },
-			           "required": ["action", "file_path", "start_line", "end_line"],
-			           "additionalProperties": false
-			       },
-			       {
-			           "type": "object",
-			           "properties": {
-			               "action": {
-			                   "type": "string",
-			                   "const": "get_all_text"
-			               },
-			               "file_path": {
-			                   "type": "string",
-			                   "description": "要读取全部内容的文件路径。注意：如果文件过长，内容将存储在临时文件中并返回文件路径"
-			               }
-			           },
-			           "required": ["action", "file_path"],
-			           "additionalProperties": false
-			       },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": {
-			                    "type": "string",
-			                    "const": "append"
-			                },
-			                "file_path": {
-			                    "type": "string",
-			                    "description": "要追加内容的文件路径"
-			                },
-			                "content": {
-			                    "type": "string",
-			                    "description": "要追加的内容"
-			                }
-			            },
-			            "required": ["action", "file_path", "content"],
-			            "additionalProperties": false
-			        },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": {
-			                    "type": "string",
-			                    "const": "count_words"
-			                },
-			                "file_path": {
-			                    "type": "string",
-			                    "description": "要统计单词数的文件路径"
-			                }
-			            },
-			            "required": ["action", "file_path"],
-			            "additionalProperties": false
-			        }
-			    ]
-			}
-			""";
 
 	private static final String TOOL_NAME = "text_file_operator";
-
-	private final String TOOL_DESCRIPTION = """
-			对文本文件（包括 md、html、css、java 等）执行各种操作。
-			支持的操作：
-			- replace: 替换文件中的特定文本，需要提供 source_text 和 target_text 参数
-			- get_text: 获取文件指定行号范围的内容，需要提供 start_line 和 end_line 参数
-			  限制：单次最多返回500行内容，如需更多内容请多次调用
-			- get_all_text: 获取文件的全部内容
-			  注意：如果文件内容过长，将自动存储到临时文件中并返回文件路径
-			- append: 向文件追加内容，需要提供 content 参数
-			- count_words: 统计当前文件中的单词数量
-
-			支持的文件类型包括：
-			- 文本文件 (.txt)
-			- Markdown 文件 (.md, .markdown)
-			- 网页文件 (.html, .css, .scss, .sass, .less)
-			- 编程文件 (.java, .py, .js, .ts, .jsx, .tsx)
-			- 配置文件 (.xml, .json, .yaml, .yml, .properties)
-			- 脚本文件 (.sh, .bat, .cmd)
-			- 日志文件 (.log)
-			- 以及更多基于文本的文件类型
-
-			注意：文件操作会自动处理文件的打开和保存，用户无需手动执行这些操作。
-			每个操作都有严格的参数要求，确保操作的准确性和安全性。
-			""";
-
-	public OpenAiApi.FunctionTool getToolDefinition() {
-		OpenAiApi.FunctionTool.Function function = new OpenAiApi.FunctionTool.Function(TOOL_DESCRIPTION, TOOL_NAME,
-				PARAMETERS);
-		OpenAiApi.FunctionTool functionTool = new OpenAiApi.FunctionTool(function);
-		return functionTool;
-	}
 
 	public ToolExecuteResult run(String toolInput) {
 		log.info("TextFileOperator toolInput:{}", toolInput);
@@ -280,10 +151,10 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 			// Basic parameter validation
 			if (action == null) {
-				return new ToolExecuteResult("错误：action参数是必需的");
+				return new ToolExecuteResult("Error: action parameter is required");
 			}
 			if (filePath == null) {
-				return new ToolExecuteResult("错误：file_path参数是必需的");
+				return new ToolExecuteResult("Error: file_path parameter is required");
 			}
 
 			return switch (action) {
@@ -292,7 +163,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					String targetText = (String) toolInputMap.get("target_text");
 
 					if (sourceText == null || targetText == null) {
-						yield new ToolExecuteResult("错误：replace操作需要source_text和target_text参数");
+						yield new ToolExecuteResult(
+								"Error: replace operation requires source_text and target_text parameters");
 					}
 
 					yield replaceText(planId, filePath, sourceText, targetText);
@@ -302,7 +174,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					Integer endLine = (Integer) toolInputMap.get("end_line");
 
 					if (startLine == null || endLine == null) {
-						yield new ToolExecuteResult("错误：get_text操作需要start_line和end_line参数");
+						yield new ToolExecuteResult(
+								"Error: get_text operation requires start_line and end_line parameters");
 					}
 
 					yield getTextByLines(planId, filePath, startLine, endLine);
@@ -312,7 +185,7 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					String appendContent = (String) toolInputMap.get("content");
 
 					if (appendContent == null) {
-						yield new ToolExecuteResult("错误：append操作需要content参数");
+						yield new ToolExecuteResult("Error: append operation requires content parameter");
 					}
 
 					yield appendToFile(planId, filePath, appendContent);
@@ -320,8 +193,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 				case "count_words" -> countWords(planId, filePath);
 				default -> {
 					textFileService.updateFileState(planId, filePath, "Error: Unknown action");
-					yield new ToolExecuteResult(
-							"未知操作: " + action + "。支持的操作: replace, get_text, get_all_text, append, count_words");
+					yield new ToolExecuteResult("Unknown operation: " + action
+							+ ". Supported operations: replace, get_text, get_all_text, append, count_words");
 				}
 			};
 		}
@@ -329,12 +202,12 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 			String planId = this.currentPlanId;
 			textFileService.updateFileState(planId, textFileService.getCurrentFilePath(planId),
 					"Error: " + e.getMessage());
-			return new ToolExecuteResult("工具执行失败: " + e.getMessage());
+			return new ToolExecuteResult("Tool execution failed: " + e.getMessage());
 		}
 	}
 
 	/**
-	 * 执行文本文件操作，接受强类型输入对象
+	 * Execute text file operations, accept strongly typed input object
 	 */
 	@Override
 	public ToolExecuteResult run(TextFileInput input) {
@@ -346,10 +219,10 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 			// Basic parameter validation
 			if (action == null) {
-				return new ToolExecuteResult("错误：action参数是必需的");
+				return new ToolExecuteResult("Error: action parameter is required");
 			}
 			if (filePath == null) {
-				return new ToolExecuteResult("错误：file_path参数是必需的");
+				return new ToolExecuteResult("Error: file_path parameter is required");
 			}
 
 			return switch (action) {
@@ -358,7 +231,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					String targetText = input.getTargetText();
 
 					if (sourceText == null || targetText == null) {
-						yield new ToolExecuteResult("错误：replace操作需要source_text和target_text参数");
+						yield new ToolExecuteResult(
+								"Error: replace operation requires source_text and target_text parameters");
 					}
 
 					yield replaceText(planId, filePath, sourceText, targetText);
@@ -368,7 +242,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					Integer endLine = input.getEndLine();
 
 					if (startLine == null || endLine == null) {
-						yield new ToolExecuteResult("错误：get_text操作需要start_line和end_line参数");
+						yield new ToolExecuteResult(
+								"Error: get_text operation requires start_line and end_line parameters");
 					}
 
 					yield getTextByLines(planId, filePath, startLine, endLine);
@@ -378,7 +253,7 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 					String appendContent = input.getContent();
 
 					if (appendContent == null) {
-						yield new ToolExecuteResult("错误：append操作需要content参数");
+						yield new ToolExecuteResult("Error: append operation requires content parameter");
 					}
 
 					yield appendToFile(planId, filePath, appendContent);
@@ -386,8 +261,8 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 				case "count_words" -> countWords(planId, filePath);
 				default -> {
 					textFileService.updateFileState(planId, filePath, "Error: Unknown action");
-					yield new ToolExecuteResult(
-							"未知操作: " + action + "。支持的操作: replace, get_text, get_all_text, append, count_words");
+					yield new ToolExecuteResult("Unknown operation: " + action
+							+ ". Supported operations: replace, get_text, get_all_text, append, count_words");
 				}
 			};
 		}
@@ -395,12 +270,12 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 			String planId = this.currentPlanId;
 			textFileService.updateFileState(planId, textFileService.getCurrentFilePath(planId),
 					"Error: " + e.getMessage());
-			return new ToolExecuteResult("工具执行失败: " + e.getMessage());
+			return new ToolExecuteResult("Tool execution failed: " + e.getMessage());
 		}
 	}
 
 	/**
-	 * 确保文件被打开，如果不存在则创建
+	 * Ensure file is opened, create if it doesn't exist
 	 */
 	private ToolExecuteResult ensureFileOpen(String planId, String filePath) {
 		try {
@@ -468,16 +343,18 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 		try {
 			// Parameter validation
 			if (startLine < 1 || endLine < 1) {
-				return new ToolExecuteResult("错误：行号必须从1开始");
+				return new ToolExecuteResult("Error: Line numbers must start from 1");
 			}
 			if (startLine > endLine) {
-				return new ToolExecuteResult("错误：起始行号不能大于结束行号");
+				return new ToolExecuteResult("Error: Start line number cannot be greater than end line number");
 			}
 
 			// Check 500-line limit
 			int requestedLines = endLine - startLine + 1;
 			if (requestedLines > 500) {
-				return new ToolExecuteResult("错误：单次最多返回500行内容。请调整行号范围或分多次调用。当前请求行数：" + requestedLines);
+				return new ToolExecuteResult(
+						"Error: Maximum 500 lines per request. Please adjust line range or make multiple calls. Current requested lines: "
+								+ requestedLines);
 			}
 
 			// Automatically open file
@@ -491,19 +368,21 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 			if (lines.isEmpty()) {
 				textFileService.updateFileState(planId, filePath, "Success: File is empty");
-				return new ToolExecuteResult("文件为空");
+				return new ToolExecuteResult("File is empty");
 			}
 
 			// Validate line number range
 			if (startLine > lines.size()) {
-				return new ToolExecuteResult("错误：起始行号超出文件范围（文件共" + lines.size() + "行）");
+				return new ToolExecuteResult(
+						"Error: Start line number exceeds file range (file has " + lines.size() + " lines)");
 			}
 
 			// Adjust end line number (not exceeding total file lines)
 			int actualEndLine = Math.min(endLine, lines.size());
 
 			StringBuilder result = new StringBuilder();
-			result.append(String.format("文件: %s (第%d-%d行，共%d行)\n", filePath, startLine, actualEndLine, lines.size()));
+			result.append(String.format("File: %s (Lines %d-%d, Total %d lines)\n", filePath, startLine, actualEndLine,
+					lines.size()));
 			result.append("=".repeat(50)).append("\n");
 
 			for (int i = startLine - 1; i < actualEndLine; i++) {
@@ -512,11 +391,11 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 			// If file has more content, prompt user
 			if (actualEndLine < lines.size()) {
-				result.append("\n提示：文件还有更多内容（第")
+				result.append("\nNote: File has more content (lines ")
 					.append(actualEndLine + 1)
 					.append("-")
 					.append(lines.size())
-					.append("行），可继续调用get_text获取。");
+					.append("), you can continue calling get_text to retrieve.");
 			}
 
 			textFileService.updateFileState(planId, filePath, "Success: Retrieved text lines");
@@ -650,12 +529,12 @@ public class TextFileOperator extends AbstractBaseTool<TextFileOperator.TextFile
 
 	@Override
 	public String getDescription() {
-		return TOOL_DESCRIPTION;
+		return toolPromptManager.getToolDescription("textFileOperator");
 	}
 
 	@Override
 	public String getParameters() {
-		return PARAMETERS;
+		return toolPromptManager.getToolParameters("textFileOperator");
 	}
 
 	@Override

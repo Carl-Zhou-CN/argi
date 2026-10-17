@@ -15,19 +15,18 @@
  */
 package com.alibaba.cloud.ai.example.manus.tool.database;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.ai.openai.api.OpenAiApi;
-
 import com.alibaba.cloud.ai.example.manus.config.ManusProperties;
 import com.alibaba.cloud.ai.example.manus.tool.AbstractBaseTool;
+import com.alibaba.cloud.ai.example.manus.tool.ToolPromptManager;
 import com.alibaba.cloud.ai.example.manus.tool.code.ToolExecuteResult;
 import com.alibaba.cloud.ai.example.manus.tool.database.action.ExecuteSqlAction;
-import com.alibaba.cloud.ai.example.manus.tool.database.action.GetTableNameAction;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.cloud.ai.example.manus.tool.database.action.GetDatasourceInfoAction;
 import com.alibaba.cloud.ai.example.manus.tool.database.action.GetTableIndexAction;
 import com.alibaba.cloud.ai.example.manus.tool.database.action.GetTableMetaAction;
-import com.alibaba.cloud.ai.example.manus.tool.database.action.GetDatasourceInfoAction;
+import com.alibaba.cloud.ai.example.manus.tool.database.action.GetTableNameAction;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
@@ -41,89 +40,21 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 
 	private final ObjectMapper objectMapper;
 
+	private final ToolPromptManager toolPromptManager;
+
 	public DatabaseUseTool(ManusProperties manusProperties, DataSourceService dataSourceService,
-			ObjectMapper objectMapper) {
+			ObjectMapper objectMapper, ToolPromptManager toolPromptManager) {
 		this.manusProperties = manusProperties;
 		this.dataSourceService = dataSourceService;
 		this.objectMapper = objectMapper;
+		this.toolPromptManager = toolPromptManager;
 	}
 
 	public DataSourceService getDataSourceService() {
 		return dataSourceService;
 	}
 
-	private final String PARAMETERS = """
-			{
-			    "oneOf": [
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": { "type": "string", "const": "execute_sql" },
-			                "query": { "type": "string", "description": "要执行的SQL语句" },
-			                "datasourceName": { "type": "string", "description": "数据源名称，可选" }
-			            },
-			            "required": ["action", "query"],
-			            "additionalProperties": false
-			        },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": { "type": "string", "const": "get_table_name" },
-			                "text": { "type": "string", "description": "要搜索的表中文名、表描述，仅支持单个查询" },
-			                "datasourceName": { "type": "string", "description": "数据源名称，可选" }
-			            },
-			            "required": ["action", "text"],
-			            "additionalProperties": false
-			        },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": { "type": "string", "const": "get_table_index" },
-			                "text": { "type": "string", "description": "要搜索的表名" },
-			                "datasourceName": { "type": "string", "description": "数据源名称，可选" }
-			            },
-			            "required": ["action", "text"],
-			            "additionalProperties": false
-			        },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": { "type": "string", "const": "get_table_meta" },
-			                "text": { "type": "string", "description": "模糊搜索表描述，留空则获取所有表" },
-			                "datasourceName": { "type": "string", "description": "数据源名称，可选" }
-			            },
-			            "required": ["action"],
-			            "additionalProperties": false
-			        },
-			        {
-			            "type": "object",
-			            "properties": {
-			                "action": { "type": "string", "const": "get_datasource_info" },
-			                "datasourceName": { "type": "string", "description": "数据源名称，留空则获取所有可用数据源" }
-			            },
-			            "required": ["action"],
-			            "additionalProperties": false
-			        }
-			    ]
-			}
-			""";
-
 	private final String name = "database_use";
-
-	private final String description = """
-			与数据库交互，执行SQL、表结构、索引、健康状态等操作。支持的操作包括：
-			- 'execute_sql'：执行SQL语句
-			- 'get_table_name'：根据表注释查找表名
-			- 'get_table_index'：获取表索引信息
-			- 'get_table_meta'：获取表结构、字段、索引的完整元信息
-			- 'get_datasource_info'：获取数据源信息
-			""";
-
-	public OpenAiApi.FunctionTool getToolDefinition() {
-		OpenAiApi.FunctionTool.Function function = new OpenAiApi.FunctionTool.Function(description, name, PARAMETERS);
-		OpenAiApi.FunctionTool functionTool = new OpenAiApi.FunctionTool(function);
-		return functionTool;
-	}
 
 	@Override
 	public String getServiceGroup() {
@@ -137,12 +68,12 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 
 	@Override
 	public String getDescription() {
-		return description;
+		return toolPromptManager.getToolDescription("database_use");
 	}
 
 	@Override
 	public String getParameters() {
-		return PARAMETERS;
+		return toolPromptManager.getToolParameters("database_use");
 	}
 
 	@Override
@@ -166,11 +97,12 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 				case "get_table_index":
 					return new GetTableIndexAction(objectMapper).execute(request, dataSourceService);
 				case "get_table_meta": {
-					// 先用text查，如果没查到再查全部
+					// First search with text, if not found then search all
 					GetTableMetaAction metaAction = new GetTableMetaAction(objectMapper);
 					ToolExecuteResult result = metaAction.execute(request, dataSourceService);
 					if (result == null || result.getOutput() == null || result.getOutput().trim().isEmpty()
-							|| result.getOutput().equals("[]") || result.getOutput().contains("未找到符合条件的表")) {
+							|| result.getOutput().equals("[]")
+							|| result.getOutput().contains("No matching tables found")) {
 						DatabaseRequest allReq = new DatabaseRequest();
 						allReq.setAction("get_table_meta");
 						allReq.setText(null);
@@ -195,7 +127,7 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 		if (planId != null) {
 			log.info("Cleaning up database resources for plan: {}", planId);
 			try {
-				// 关闭所有数据源的连接
+				// Close all data source connections
 				dataSourceService.closeAllConnections();
 				log.info("Successfully cleaned up database connections for plan: {}", planId);
 			}
@@ -208,10 +140,10 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 	@Override
 	public String getCurrentToolStateString() {
 		try {
-			// 获取所有数据源信息
+			// Get all data source information
 			Map<String, String> datasourceInfo = dataSourceService.getAllDatasourceInfo();
 
-			// 构建数据源状态信息
+			// Build data source status information
 			StringBuilder stateBuilder = new StringBuilder();
 			stateBuilder.append("\n=== Database Tool Current State ===\n");
 
@@ -226,7 +158,7 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 					stateBuilder.append(String.format("  - %s (%s)\n", datasourceName, datasourceType));
 				}
 
-				// 获取默认数据源信息
+				// Get default data source information
 				try {
 					String defaultType = dataSourceService.getDataSourceType();
 					stateBuilder.append(String.format("\nDefault datasource type: %s\n", defaultType));
@@ -235,7 +167,7 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 					stateBuilder.append("\nDefault datasource: Not available\n");
 				}
 
-				// 测试连接状态
+				// Test connection status
 				stateBuilder.append("\nConnection status:\n");
 				for (String datasourceName : datasourceInfo.keySet()) {
 					try {
@@ -259,8 +191,9 @@ public class DatabaseUseTool extends AbstractBaseTool<DatabaseRequest> {
 		}
 	}
 
-	public static DatabaseUseTool getInstance(DataSourceService dataSourceService, ObjectMapper objectMapper) {
-		return new DatabaseUseTool(null, dataSourceService, objectMapper);
+	public static DatabaseUseTool getInstance(DataSourceService dataSourceService, ObjectMapper objectMapper,
+			ToolPromptManager toolPromptManager) {
+		return new DatabaseUseTool(null, dataSourceService, objectMapper, toolPromptManager);
 	}
 
 }
