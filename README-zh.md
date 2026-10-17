@@ -7,13 +7,34 @@
 
 总的来说，使用 Spring AI Alibaba 开发应用与使用普通 Spring Boot 没有什么区别，只需要增加 `spring-ai-alibaba-starter` 依赖，将 `ChatClient` Bean 注入就可以实现与模型聊天了。
 
+> 因为 Spring AI Alibaba 基于 Spring Boot 3.x 开发，因此对 JDK 要求 17 及以上版本。
+
+1. 在项目中加入 `spring-ai-alibaba-starter` 依赖。
+
 ```xml
 <dependency>
-	<groupId>com.alibaba.ai</groupId>
+	<groupId>com.alibaba.cloud.ai</groupId>
 	<artifactId>spring-ai-alibaba-starter</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0-M2.1</version>
 </dependency>
 ```
+
+> 注意：由于 spring-ai 相关依赖包还没有发布到中央仓库，如出现 spring-ai-core 等相关依赖解析问题，请在您项目的 pom.xml 依赖中加入如下仓库配置。
+>
+> ```xml
+> <repositories>
+> 	<repository>
+> 		<id>spring-milestones</id>
+> 		<name>Spring Milestones</name>
+> 		<url>https://repo.spring.io/milestone</url>
+> 		<snapshots>
+> 			<enabled>false</enabled>
+> 		</snapshots>
+> 	</repository>
+> </repositories>
+> ```
+
+2. 为你的 Spring Bean 注入 `ChatClient`。
 
 ```java
 @RestController
@@ -35,7 +56,19 @@ public class ChatController {
 }
 ```
 
+## 示例
+请在 [spring-ai-alibaba-examples](./spring-ai-alibaba-examples) 查看更多 Example 示例。
+
+* Hello World
+* Chat Model
+* Function Calling
+* Structured Output
+* Prompt
+* RAG
+* Flight Booking Playground，一个贴近实际使用场景，综合运用了 prompt template、function calling、chat memory 和 rag 等的智能机票助手应用。
+
 ## 特性
+
 以下是 Spring AI Alibaba 支持的核心能力，未来更多高级功能将以这些核心能力为基础。请参考官网文档学习每个[功能详细说明](https://sca.aliyun.com/docs/2023/user-guide/ai/quick-start/)以及 [AI 应用开发最佳实践](https://sca.aliyun.com/docs/2023/user-guide/ai/quick-start/)。
 
 * 开发复杂 AI 应用的高阶抽象 Fluent API -- ChatClient
@@ -62,10 +95,12 @@ Spring AI Alibaba 提供 AI 开源框架以及与阿里巴巴整体开源生态�
 ![ai-native-architecture](./docs/imgs/spring-ai-alibaba-arch.png)
 
 ## 参考资料
+
 * [Spring AI](https://docs.spring.io/spring-ai/reference/index.html)
 * [阿里云百炼大模型应用开发平台](https://help.aliyun.com/zh/model-studio/getting-started/what-is-model-studio/)
 
 ## 联系我们
+
 * 钉钉群：请通过群号 `64485010179` 搜索入群
 * 微信公众号：请扫描一下二维码关注公众号
 

@@ -40,12 +40,12 @@ public class DashScopeChatProperties extends DashScopeParentProperties {
 	/**
 	 * Default DashScope Chat model.
 	 */
-	public static final String DEFAULT_DEPLOYMENT_NAME = Generation.Models.QWEN_TURBO;
+	public static final String DEFAULT_DEPLOYMENT_NAME = Generation.Models.QWEN_PLUS;
 
 	/**
 	 * Default temperature speed.
 	 */
-	private static final Float DEFAULT_TEMPERATURE = 0.8f;
+	private static final Double DEFAULT_TEMPERATURE = 0.8d;
 
 	/**
 	 * Enable Dashscope ai chat client.
@@ -56,7 +56,6 @@ public class DashScopeChatProperties extends DashScopeParentProperties {
 	private DashScopeChatOptions options = DashScopeChatOptions.builder()
 		.withModel(DEFAULT_DEPLOYMENT_NAME)
 		.withTemperature(DEFAULT_TEMPERATURE)
-		.withEnableSearch(true)
 		.build();
 
 	public DashScopeChatProperties() {
