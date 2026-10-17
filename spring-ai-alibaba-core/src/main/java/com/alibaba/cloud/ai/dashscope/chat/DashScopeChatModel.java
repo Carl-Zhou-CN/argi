@@ -73,6 +73,7 @@ import org.springframework.retry.support.RetryTemplate;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
+import org.springframework.util.StringUtils;
 
 /**
  * {@link ChatModel} implementation for {@literal Alibaba DashScope} backed by
@@ -156,10 +157,13 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 
 	@Override
 	public ChatResponse call(Prompt prompt) {
+		Assert.notNull(prompt, "Prompt must not be null");
+		Assert.isTrue(!CollectionUtils.isEmpty(prompt.getInstructions()), "Prompt messages must not be empty");
 
 		ChatModelObservationContext observationContext = ChatModelObservationContext.builder()
 			.prompt(prompt)
 			.provider(DashScopeApiConstants.PROVIDER_NAME)
+			// @deprecated since 1.0.0-m6
 			.requestOptions(prompt.getOptions() != null ? prompt.getOptions() : this.defaultOptions)
 			.build();
 
@@ -186,7 +190,8 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 						Map<String, Object> metadata = Map.of(
 								"id", chatCompletion.requestId(),
 								"role", choice.message().role() != null ? choice.message().role().name() : "",
-								"finishReason", choice.finishReason() != null ? choice.finishReason().name() : "");
+								"finishReason", choice.finishReason() != null ? choice.finishReason().name() : "",
+								"reasoningContent", StringUtils.hasText(choice.message().reasoningContent()) ? choice.message().reasoningContent() : "");
 						// @formatter:on
 					return buildGeneration(choice, metadata);
 				}).toList();
@@ -216,6 +221,8 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 
 	@Override
 	public Flux<ChatResponse> stream(Prompt prompt) {
+		Assert.notNull(prompt, "Prompt must not be null");
+		Assert.isTrue(!CollectionUtils.isEmpty(prompt.getInstructions()), "Prompt messages must not be empty");
 
 		return Flux.deferContextual(contextView -> {
 			ChatCompletionRequest request = createRequest(prompt, true);
@@ -255,7 +262,8 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 								Map<String, Object> metadata = Map.of(
 										"id", chatCompletion2.requestId(),
 										"role", roleMap.getOrDefault(requestId, ""),
-										"finishReason", choice.finishReason() != null ? choice.finishReason().name() : "");
+										"finishReason", choice.finishReason() != null ? choice.finishReason().name() : "",
+										"reasoningContent", StringUtils.hasText(choice.message().reasoningContent()) ? choice.message().reasoningContent() : "");
 								return buildGeneration(choice, metadata);
 							}).toList();
 							// @formatter:on
@@ -375,8 +383,8 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 						return new ToolCall(toolCall.id(), toolCall.type(), function);
 					}).toList();
 				}
-				return List.of(new ChatCompletionMessage(assistantMessage.getContent(),
-						ChatCompletionMessage.Role.ASSISTANT, null, null, toolCalls));
+				return List.of(new ChatCompletionMessage(assistantMessage.getText(),
+						ChatCompletionMessage.Role.ASSISTANT, null, null, toolCalls, null));
 			}
 			else if (message.getMessageType() == MessageType.TOOL) {
 				ToolResponseMessage toolMessage = (ToolResponseMessage) message;
@@ -389,7 +397,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 				return toolMessage.getResponses()
 					.stream()
 					.map(tr -> new ChatCompletionMessage(tr.responseData(), ChatCompletionMessage.Role.TOOL, tr.name(),
-							tr.id(), null))
+							tr.id(), null, null))
 					.toList();
 			}
 			else {
@@ -410,7 +418,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 
 		List<MediaContent> contentList = new ArrayList<>();
 		if (format == MessageFormat.VIDEO) {
-			MediaContent mediaContent = new MediaContent(message.getContent());
+			MediaContent mediaContent = new MediaContent(message.getText());
 			contentList.add(mediaContent);
 
 			List<String> mediaList = message.getMedia()
@@ -421,7 +429,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 			contentList.add(new MediaContent("video", null, null, mediaList));
 		}
 		else {
-			MediaContent mediaContent = new MediaContent(message.getContent());
+			MediaContent mediaContent = new MediaContent(message.getText());
 			contentList.add(mediaContent);
 
 			contentList.addAll(message.getMedia()
