@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.alibaba.cloud.ai</groupId>
 	<artifactId>spring-ai-alibaba-examples</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Spring AI Alibaba Examples</name>
@@ -15,12 +15,12 @@
 	</properties>
 
 	<modules>
-		<module>helloworld</module>
-		<module>models</module>
-		<module>prompt</module>
-		<module>function-calling</module>
-		<module>rag</module>
-		<module>outputparser</module>
+		<module>helloworld-example</module>
+		<module>chatmodel-example</module>
+		<module>prompt-example</module>
+		<module>function-calling-example</module>
+		<module>rag-example</module>
+		<module>output-parser-example</module>
 		<module>playground-flight-booking</module>
 	</modules>
 

@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeAgentApi;
+import com.alibaba.cloud.ai.dashscope.api.DashScopeAudioApi;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeImageApi;
 import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
@@ -66,7 +67,7 @@ import static com.alibaba.cloud.ai.dashscope.common.DashScopeApiConstants.DASHSC
 /**
  * @author nuocheng.lxm
  * @author yuluo
- * @date 2024/8/16 11:45
+ * @since 2024/8/16 11:45
  */
 @AutoConfiguration(after = { RestClientAutoConfiguration.class, WebClientAutoConfiguration.class,
 		SpringAiRetryAutoConfiguration.class })
@@ -112,6 +113,10 @@ public class DashScopeAutoConfiguration {
 				retryTemplate);
 	}
 
+	@Bean
+	@ConditionalOnMissingBean
+	@ConditionalOnProperty(prefix = DashScopeEmbeddingProperties.CONFIG_PREFIX, name = "enabled", havingValue = "true",
+			matchIfMissing = true)
 	public DashScopeApi dashscopeChatApi(DashScopeConnectionProperties commonProperties,
 			DashScopeChatProperties chatProperties, RestClient.Builder restClientBuilder,
 			WebClient.Builder webClientBuilder, ResponseErrorHandler responseErrorHandler) {
