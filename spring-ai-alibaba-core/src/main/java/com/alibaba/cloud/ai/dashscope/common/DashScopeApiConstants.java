@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 the original author or authors.
+ * Copyright 2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,11 @@
 
 package com.alibaba.cloud.ai.dashscope.common;
 
+import com.alibaba.cloud.ai.dashscope.observation.conventions.AiProvider;
+
 /**
  * @author nuocheng.lxm
- * @date 2024/7/23 16:01
+ * @since 1.0.0-M2
  */
 public final class DashScopeApiConstants {
 
@@ -30,10 +32,16 @@ public final class DashScopeApiConstants {
 
 	public static final String SOURCE_FLAG = "CloudSDK";
 
+	public static final String SDK_FLAG = "SpringAiAlibaba";
+
 	public static final String DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com";
 
-	public static final String DASHSCOPE_API_KEY = "DASHSCOPE_API_KEY";
+	public static final String DASHSCOPE_API_KEY = "AI_DASHSCOPE_API_KEY";
+
+	public static final String DEFAULT_WEBSOCKET_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/inference/";
 
 	public static final Integer DEFAULT_READ_TIMEOUT = 60;
+
+	public static final String PROVIDER_NAME = AiProvider.DASHSCOPE.value();
 
 }

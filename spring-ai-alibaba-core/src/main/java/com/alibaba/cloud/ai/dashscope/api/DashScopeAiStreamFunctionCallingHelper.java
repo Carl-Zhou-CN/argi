@@ -39,6 +39,15 @@ import org.springframework.util.StringUtils;
  */
 public class DashScopeAiStreamFunctionCallingHelper {
 
+	private Boolean incrementalOutput = false;
+
+	public DashScopeAiStreamFunctionCallingHelper() {
+	}
+
+	public DashScopeAiStreamFunctionCallingHelper(Boolean incrementalOutput) {
+		this.incrementalOutput = incrementalOutput;
+	}
+
 	/**
 	 * Merge the previous and current ChatCompletionChunk into a single one.
 	 * @param previous the previous ChatCompletionChunk
@@ -46,7 +55,6 @@ public class DashScopeAiStreamFunctionCallingHelper {
 	 * @return the merged ChatCompletionChunk
 	 */
 	public ChatCompletionChunk merge(ChatCompletionChunk previous, ChatCompletionChunk current) {
-
 		if (previous == null) {
 			return current;
 		}
@@ -56,6 +64,17 @@ public class DashScopeAiStreamFunctionCallingHelper {
 
 		Choice previousChoice0 = previous.output() == null ? null : previous.output().choices().get(0);
 		Choice currentChoice0 = current.output() == null ? null : current.output().choices().get(0);
+
+		// compatibility of incremental_output false for streaming function call
+		if (!incrementalOutput && isStreamingToolFunctionCall(current)) {
+			if (!isStreamingToolFunctionCallFinish(current)) {
+				return new ChatCompletionChunk(id, new ChatCompletionOutput(null, List.of(new Choice(null, null))),
+						usage);
+			}
+			else {
+				return new ChatCompletionChunk(id, new ChatCompletionOutput(null, List.of(currentChoice0)), usage);
+			}
+		}
 
 		Choice choice = merge(previousChoice0, currentChoice0);
 		List<Choice> chunkChoices = choice == null ? List.of() : List.of(choice);
@@ -79,8 +98,8 @@ public class DashScopeAiStreamFunctionCallingHelper {
 				: (previous.content() != null) ? previous.content() : "");
 		Role role = (current.role() != null ? current.role() : previous.role());
 		role = (role != null ? role : Role.ASSISTANT); // default to ASSISTANT (if null
-		String name = (current.name() != null ? current.name() : previous.name());
-		String toolCallId = (current.toolCallId() != null ? current.toolCallId() : previous.toolCallId());
+		String name = (StringUtils.hasText(current.name()) ? current.name() : previous.name());
+		String toolCallId = (StringUtils.hasText(current.toolCallId()) ? current.toolCallId() : previous.toolCallId());
 
 		List<ToolCall> toolCalls = new ArrayList<>();
 		ToolCall lastPreviousTooCall = null;
@@ -117,8 +136,8 @@ public class DashScopeAiStreamFunctionCallingHelper {
 		if (previous == null) {
 			return current;
 		}
-		String id = (current.id() != null ? current.id() : previous.id());
-		String type = (current.type() != null ? current.type() : previous.type());
+		String id = (StringUtils.hasText(current.id()) ? current.id() : previous.id());
+		String type = (StringUtils.hasText(current.type()) ? current.type() : previous.type());
 		ChatCompletionFunction function = merge(previous.function(), current.function());
 		return new ToolCall(id, type, function);
 	}
@@ -127,7 +146,7 @@ public class DashScopeAiStreamFunctionCallingHelper {
 		if (previous == null) {
 			return current;
 		}
-		String name = (current.name() != null ? current.name() : previous.name());
+		String name = (StringUtils.hasText(current.name()) ? current.name() : previous.name());
 		StringBuilder arguments = new StringBuilder();
 		if (previous.arguments() != null) {
 			arguments.append(previous.arguments());

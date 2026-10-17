@@ -1,10 +1,23 @@
 package com.alibaba.cloud.ai.dashscope.api;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+
 import com.alibaba.cloud.ai.dashscope.common.DashScopeException;
 import com.alibaba.cloud.ai.dashscope.common.ErrorCodeEnum;
-import com.alibaba.cloud.ai.dashscope.rag.DashScopeDocumentTransformerOptions;
 import com.alibaba.cloud.ai.dashscope.rag.DashScopeDocumentRetrieverOptions;
+import com.alibaba.cloud.ai.dashscope.rag.DashScopeDocumentTransformerOptions;
 import com.alibaba.cloud.ai.dashscope.rag.DashScopeStoreOptions;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import reactor.core.publisher.Flux;
@@ -12,13 +25,16 @@ import reactor.core.publisher.Mono;
 
 import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.model.ChatModelDescription;
 import org.springframework.ai.model.ModelOptionsUtils;
 import org.springframework.ai.retry.RetryUtils;
 import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.client.ResponseErrorHandler;
@@ -26,21 +42,12 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.net.URI;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-
 import static com.alibaba.cloud.ai.dashscope.common.DashScopeApiConstants.DEFAULT_BASE_URL;
 
 /**
  * @author nuocheng.lxm
  * @author yuluo
- *
- * @date 2024/7/31 14:15
+ * @since 1.0.0-M2
  */
 public class DashScopeApi {
 
@@ -359,7 +366,7 @@ public class DashScopeApi {
 					uploadLeaseResponse.message()));
 		}
 		uploadFile(file, uploadLeaseResponse);
-        return addFile(uploadLeaseResponse.data.leaseId(), request);
+		return addFile(uploadLeaseResponse.data.leaseId(), request);
 	}
 
 	public ResponseEntity<CommonResponse<QueryFileResponseData>> queryFileInfo(String categoryId,
@@ -690,8 +697,7 @@ public class DashScopeApi {
 			.body(upsertPipelineRequest)
 			.retrieve()
 			.toEntity(StartPipelineResponse.class);
-		if (startPipelineResponse.getBody() == null
-				|| !"SUCCESS".equalsIgnoreCase(startPipelineResponse.getBody().code)
+		if (startPipelineResponse.getBody() == null || !"SUCCESS".equalsIgnoreCase(startPipelineResponse.getBody().code)
 				|| startPipelineResponse.getBody().ingestionId == null) {
 			throw new DashScopeException(ErrorCodeEnum.INDEX_ADD_DOCUMENT_ERROR);
 		}
@@ -814,7 +820,7 @@ public class DashScopeApi {
 	public record ChatCompletionRequest(@JsonProperty("model") String model,
 			@JsonProperty("input") ChatCompletionRequestInput input,
 			@JsonProperty("parameters") ChatCompletionRequestParameter parameters,
-			@JsonProperty("stream") Boolean stream) {
+			@JsonProperty("stream") Boolean stream, @JsonIgnore Boolean multiModel) {
 
 		/**
 		 * Shortcut constructor for a chat completion request with the given messages and
@@ -823,7 +829,7 @@ public class DashScopeApi {
 		 * @param input request input of chat.
 		 */
 		public ChatCompletionRequest(String model, ChatCompletionRequestInput input, Boolean stream) {
-			this(model, input, null, stream);
+			this(model, input, null, stream, false);
 		}
 	}
 
@@ -857,18 +863,21 @@ public class DashScopeApi {
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	public record ChatCompletionRequestParameter(@JsonProperty("result_format") String resultFormat,
 			@JsonProperty("seed") Integer seed, @JsonProperty("max_tokens") Integer maxTokens,
-			@JsonProperty("top_p") Float topP, @JsonProperty("top_k") Integer topK,
-			@JsonProperty("repetition_penalty") Float repetitionPenalty,
-			@JsonProperty("presence_penalty") Float presencePenalty, @JsonProperty("temperature") Float temperature,
+			@JsonProperty("top_p") Double topP, @JsonProperty("top_k") Integer topK,
+			@JsonProperty("repetition_penalty") Double repetitionPenalty,
+			@JsonProperty("presence_penalty") Double presencePenalty, @JsonProperty("temperature") Double temperature,
 			@JsonProperty("stop") List<Object> stop, @JsonProperty("enable_search") Boolean enableSearch,
+			@JsonProperty("response_format") DashScopeResponseFormat responseFormat,
 			@JsonProperty("incremental_output") Boolean incrementalOutput,
-			@JsonProperty("tools") List<FunctionTool> tools, @JsonProperty("tool_choice") Object toolChoice) {
+			@JsonProperty("tools") List<FunctionTool> tools, @JsonProperty("tool_choice") Object toolChoice,
+			@JsonProperty("stream") Boolean stream,
+			@JsonProperty("vl_high_resolution_images") Boolean vlHighResolutionImages) {
 
 		/**
 		 * shortcut constructor for chat request parameter
 		 */
 		public ChatCompletionRequestParameter() {
-			this(null, null, null, null, null, null, null, null, null, null, null, null, null);
+			this(null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 		}
 
 		/**
@@ -894,15 +903,6 @@ public class DashScopeApi {
 				return Map.of("type", "function", "function", Map.of("name", functionName));
 			}
 
-		}
-
-		/**
-		 * An object specifying the format that the model must output.
-		 *
-		 * @param type Must be one of 'text' or 'json_object'.
-		 */
-		@JsonInclude(JsonInclude.Include.NON_NULL)
-		public record ResponseFormat(@JsonProperty("type") String type) {
 		}
 	}
 
@@ -940,12 +940,28 @@ public class DashScopeApi {
 		 */
 		public String content() {
 			if (this.rawContent == null) {
-				return null;
+				return "";
 			}
+
 			if (this.rawContent instanceof String text) {
 				return text;
 			}
-			throw new IllegalStateException("The content is not a string!");
+
+			if (this.rawContent instanceof List list) {
+				if (list.isEmpty()) {
+					return "";
+				}
+
+				Object object = list.get(0);
+				if (object instanceof Map map) {
+					if (map.isEmpty() || map.get("text") == null) {
+						return "";
+					}
+
+					return map.get("text").toString();
+				}
+			}
+			throw new IllegalStateException("The content is not valid!");
 		}
 
 		/**
@@ -990,44 +1006,20 @@ public class DashScopeApi {
 		 * An array of content parts with a defined type. Each MediaContent can be of
 		 * either "text" or "image_url" type. Not both.
 		 *
-		 * @param type Content type, each can be of type text or image_url.
 		 * @param text The text content of the message.
-		 * @param imageUrl The image content of the message. You can pass multiple images
-		 * by adding multiple image_url content parts. Image input is only supported when
-		 * using the glm-4v model.
+		 * @param image The image content of the message. You can pass multiple images
+		 * @param video The image list of video. by adding multiple image_url content
+		 * parts. Image input is only supported when using the glm-4v model.
 		 */
 		@JsonInclude(JsonInclude.Include.NON_NULL)
 		public record MediaContent(@JsonProperty("type") String type, @JsonProperty("text") String text,
-				@JsonProperty("image_url") ImageUrl imageUrl) {
-
-			/**
-			 * @param url Either a URL of the image or the base64 encoded image data. The
-			 * base64 encoded image data must have a special prefix in the following
-			 * format: "data:{mimetype};base64,{base64-encoded-image-data}".
-			 * @param detail Specifies the detail level of the image.
-			 */
-			@JsonInclude(JsonInclude.Include.NON_NULL)
-			public record ImageUrl(@JsonProperty("url") String url, @JsonProperty("detail") String detail) {
-
-				public ImageUrl(String url) {
-					this(url, null);
-				}
-			}
-
+				@JsonProperty("image") String image, @JsonProperty("video") List<String> video) {
 			/**
 			 * Shortcut constructor for a text content.
 			 * @param text The text content of the message.
 			 */
 			public MediaContent(String text) {
-				this("text", text, null);
-			}
-
-			/**
-			 * Shortcut constructor for an image content.
-			 * @param imageUrl The image content of the message.
-			 */
-			public MediaContent(ImageUrl imageUrl) {
-				this("image_url", null, imageUrl);
+				this("text", text, null, null);
 			}
 		}
 
@@ -1222,6 +1214,75 @@ public class DashScopeApi {
 	}
 
 	/**
+	 * Represents dashscope rerank request input
+	 *
+	 * @param query query string for rerank.
+	 * @param documents list of documents for rerank.
+	 */
+	public record RerankRequestInput(@JsonProperty("query") String query,
+			@JsonProperty("documents") List<String> documents) {
+	}
+
+	/**
+	 * Represents rerank request parameters.
+	 *
+	 * @param topN return top n documents, it will return all the documents if top n not
+	 * pass.
+	 * @param returnDocuments if need to return original documents
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	public record RerankRequestParameter(@JsonProperty("top_n") Integer topN,
+			@JsonProperty("return_documents") Boolean returnDocuments) {
+	}
+
+	/**
+	 * Represents rerank request information.
+	 *
+	 * @param model ID of the model to use.
+	 * @param input dashscope rerank input.
+	 * @param parameters rerank parameters.
+	 *
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	public record RerankRequest(@JsonProperty("model") String model, @JsonProperty("input") RerankRequestInput input,
+			@JsonProperty("parameters") RerankRequestParameter parameters) {
+	}
+
+	/**
+	 * Represents rerank output result
+	 *
+	 * @param index index of input document list
+	 * @param relevanceScore relevance score between query and document
+	 * @param document original document
+	 */
+	public record RerankResponseOutputResult(@JsonProperty("index") Integer index,
+			@JsonProperty("relevance_score") Double relevanceScore,
+			@JsonProperty("document") Map<String, Object> document) {
+	}
+
+	/**
+	 * Represents rerank response output
+	 *
+	 * @param results rerank output results
+	 */
+	public record RerankResponseOutput(@JsonProperty("results") List<RerankResponseOutputResult> results) {
+
+	}
+
+	/**
+	 * Represents rerank response
+	 *
+	 * @param output rerank response output
+	 * @param usage rerank token usage
+	 * @param requestId rerank request id
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	public record RerankResponse(@JsonProperty("output") RerankResponseOutput output,
+			@JsonProperty("usage") TokenUsage usage, @JsonProperty("request_id") String requestId) {
+
+	}
+
+	/**
 	 * Creates a model response for the given chat conversation.
 	 * @param chatRequest The chat completion request.
 	 * @return Entity response with {@link ChatCompletion} as a body and HTTP status code
@@ -1232,14 +1293,13 @@ public class DashScopeApi {
 		Assert.notNull(chatRequest, "The request body can not be null.");
 		Assert.isTrue(!chatRequest.stream(), "Request must set the stream property to false.");
 
-		return this.restClient.post()
-			.uri("/api/v1/services/aigc/text-generation/generation")
-			.body(chatRequest)
-			.retrieve()
-			.toEntity(ChatCompletion.class);
-	}
+		String uri = "/api/v1/services/aigc/text-generation/generation";
+		if (chatRequest.multiModel()) {
+			uri = "/api/v1/services/aigc/multimodal-generation/generation";
+		}
 
-	private final DashScopeAiStreamFunctionCallingHelper chunkMerger = new DashScopeAiStreamFunctionCallingHelper();
+		return this.restClient.post().uri(uri).body(chatRequest).retrieve().toEntity(ChatCompletion.class);
+	}
 
 	/**
 	 * Creates a streaming chat response for the given chat conversation.
@@ -1253,9 +1313,18 @@ public class DashScopeApi {
 		Assert.isTrue(chatRequest.stream(), "Request must set the stream property to true.");
 
 		AtomicBoolean isInsideTool = new AtomicBoolean(false);
+		boolean incrementalOutput = chatRequest.parameters() != null
+				&& chatRequest.parameters().incrementalOutput != null && chatRequest.parameters().incrementalOutput;
+		DashScopeAiStreamFunctionCallingHelper chunkMerger = new DashScopeAiStreamFunctionCallingHelper(
+				incrementalOutput);
+
+		String uri = "/api/v1/services/aigc/text-generation/generation";
+		if (chatRequest.multiModel()) {
+			uri = "/api/v1/services/aigc/multimodal-generation/generation";
+		}
 
 		return this.webClient.post()
-			.uri("/api/v1/services/aigc/text-generation/generation")
+			.uri(uri)
 			.header("X-DashScope-SSE", "enable")
 			.body(Mono.just(chatRequest), ChatCompletionRequest.class)
 			.retrieve()
@@ -1264,13 +1333,13 @@ public class DashScopeApi {
 			.filter(SSE_DONE_PREDICATE.negate())
 			.map(content -> ModelOptionsUtils.jsonToObject(content, ChatCompletionChunk.class))
 			.map(chunk -> {
-				if (this.chunkMerger.isStreamingToolFunctionCall(chunk)) {
+				if (chunkMerger.isStreamingToolFunctionCall(chunk)) {
 					isInsideTool.set(true);
 				}
 				return chunk;
 			})
 			.windowUntil(chunk -> {
-				if (isInsideTool.get() && this.chunkMerger.isStreamingToolFunctionCallFinish(chunk)) {
+				if (isInsideTool.get() && chunkMerger.isStreamingToolFunctionCallFinish(chunk)) {
 					isInsideTool.set(false);
 					return true;
 				}
@@ -1278,10 +1347,26 @@ public class DashScopeApi {
 			})
 			.concatMapIterable(window -> {
 				Mono<ChatCompletionChunk> monoChunk = window.reduce(new ChatCompletionChunk(null, null, null),
-						this.chunkMerger::merge);
+						chunkMerger::merge);
 				return List.of(monoChunk);
 			})
 			.flatMap(mono -> mono);
+	}
+
+	/**
+	 * Creates rerank request for dashscope rerank model.
+	 * @param rerankRequest The chat completion request.
+	 * @return Entity response with {@link ChatCompletion} as a body and HTTP status code
+	 * and headers.
+	 */
+	public ResponseEntity<RerankResponse> rerankEntity(RerankRequest rerankRequest) {
+		Assert.notNull(rerankRequest, "The request body can not be null.");
+
+		return this.restClient.post()
+			.uri("/api/v1/services/rerank/text-rerank/text-rerank")
+			.body(rerankRequest)
+			.retrieve()
+			.toEntity(RerankResponse.class);
 	}
 
 }

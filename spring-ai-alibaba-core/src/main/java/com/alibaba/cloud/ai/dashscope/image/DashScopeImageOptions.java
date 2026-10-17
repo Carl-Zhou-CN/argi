@@ -24,7 +24,7 @@ import org.springframework.ai.image.ImageOptions;
 /**
  * @author nuocheng.lxm
  * @author yuluo
- * @date 2024/8/16 11:29
+ * @since 2024/8/16 11:29
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DashScopeImageOptions implements ImageOptions {
@@ -201,6 +201,15 @@ public class DashScopeImageOptions implements ImageOptions {
 
 	public void setNegativePrompt(String negativePrompt) {
 		this.negativePrompt = negativePrompt;
+	}
+
+	@Override
+	public String toString() {
+
+		return "DashScopeImageOptions{" + "model='" + model + '\'' + ", n=" + n + ", width=" + width + ", height="
+				+ height + ", size='" + size + '\'' + ", style='" + style + '\'' + ", seed=" + seed + ", refImg='"
+				+ refImg + '\'' + ", refStrength=" + refStrength + ", refMode='" + refMode + '\'' + ", negativePrompt='"
+				+ negativePrompt + '\'' + '}';
 	}
 
 	public static class Builder {
