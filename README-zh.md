@@ -2,6 +2,8 @@
 
 [Spring AI Alibaba](https://java2ai.com) 是一款 Java 语言实现的 AI 应用开发框架，旨在简化 Java AI 应用程序开发，让 Java 开发者像使用 Spring 开发普通应用一样开发 AI 应用。Spring AI Alibaba 基于 Spring AI 开源项目构建，默认提供阿里云基础模型服务、开源及商业生态组件的集成与最佳实践。
 
+[English](./README.md) | [日本語](./README-ja.md)
+
 ## 快速开始
 
 请参考[快速开始](https://java2ai.com/docs/dev/get-started/) 了解如何使用 Spring AI Alibaba 快速开发生成式 AI 应用。
@@ -12,59 +14,61 @@
 
 1. 在项目中加入 `spring-ai-alibaba-starter` 依赖。
 
-	```xml
-	<dependency>
-		<groupId>com.alibaba.cloud.ai</groupId>
-		<artifactId>spring-ai-alibaba-starter</artifactId>
-		<version>1.0.0-M3.2</version>
-	</dependency>
-	```
+ ```xml
+ <dependency>
+  <groupId>com.alibaba.cloud.ai</groupId>
+  <artifactId>spring-ai-alibaba-starter</artifactId>
+  <version>1.0.0-M6.1</version>
+ </dependency>
+ ```
 
-	> 注意：由于 spring-ai 相关依赖包还没有发布到中央仓库，如出现 spring-ai-core 等相关依赖解析问题，请在您项目的 pom.xml 依赖中加入如下仓库配置。
-	>
-	> ```xml
-	> <repositories>
-	> 	<repository>
-	> 		<id>spring-milestones</id>
-	> 		<name>Spring Milestones</name>
-	> 		<url>https://repo.spring.io/milestone</url>
-	> 		<snapshots>
-	> 			<enabled>false</enabled>
-	> 		</snapshots>
-	> 	</repository>
-	> </repositories>
-	> ```
-	> 补充：如果您的本地 maven settings.xml 中的 mirrorOf 标签配置了通配符 * ，请根据以下示例修改。
-	> ```xml
-	> <mirror>
-	>   <id>xxxx</id>
-	>   <mirrorOf>*,!spring-milestones</mirrorOf>
-	>   <name>xxxx</name>
-	>   <url>xxxx</url>
-	> </mirror>
-	> ```
+ > 注意：由于 spring-ai 相关依赖包还没有发布到中央仓库，如出现 spring-ai-core 等相关依赖解析问题，请在您项目的 pom.xml 依赖中加入如下仓库配置。
+ >
+ > ```xml
+ > <repositories>
+ >  <repository>
+ >   <id>spring-milestones</id>
+ >   <name>Spring Milestones</name>
+ >   <url>https://repo.spring.io/milestone</url>
+ >   <snapshots>
+ >    <enabled>false</enabled>
+ >   </snapshots>
+ >  </repository>
+ > </repositories>
+ > ```
+>
+ > 补充：如果您的本地 maven settings.xml 中的 mirrorOf 标签配置了通配符 * ，请根据以下示例修改。
+>
+ > ```xml
+ > <mirror>
+ >   <id>xxxx</id>
+ >   <mirrorOf>*,!spring-milestones</mirrorOf>
+ >   <name>xxxx</name>
+ >   <url>xxxx</url>
+ > </mirror>
+ > ```
 
 2. 注入 `ChatClient`。
 
-	```java
-	@RestController
-	public class ChatController {
+ ```java
+ @RestController
+ public class ChatController {
 
-		private final ChatClient chatClient;
+  private final ChatClient chatClient;
 
-		public ChatController(ChatClient.Builder builder) {
-			this.chatClient = builder.build();
-		}
+  public ChatController(ChatClient.Builder builder) {
+   this.chatClient = builder.build();
+  }
 
-		@GetMapping("/chat")
-		public String chat(String input) {
-			return this.chatClient.prompt()
-					.user(input)
-					.call()
-					.content();
-		}
-	}
-	```
+  @GetMapping("/chat")
+  public String chat(String input) {
+   return this.chatClient.prompt()
+     .user(input)
+     .call()
+     .content();
+  }
+ }
+ ```
 
 ## 示例
 
@@ -96,6 +100,7 @@
 ## Roadmap
 
 Spring AI Alibaba 提供 AI 开源框架以及与阿里巴巴整体开源生态的深度适配，以帮助 Java 开发者快速构建原生 AI 应用架构。
+
 * Prompt Template 管理
 * 事件驱动的 AI 应用程序
 * 更多 Vector Database 支持
@@ -105,6 +110,10 @@ Spring AI Alibaba 提供 AI 开源框架以及与阿里巴巴整体开源生态�
 * 开发者工具集
 
 ![ai-native-architecture](./docs/imgs/spring-ai-alibaba-arch.png)
+
+## 贡献指南
+
+请参考 [贡献指南](./CONTRIBUTING.md) 了解如何参与 Spring AI Alibaba 的开发。
 
 ## 参考资料
 
@@ -118,3 +127,11 @@ Spring AI Alibaba 提供 AI 开源框架以及与阿里巴巴整体开源生态�
 * 微信公众号：请扫描一下二维码关注公众号
 
 <img src="./docs/imgs/wechat-account.png" style="max-width:200px;"/>
+
+## Credit
+
+本项目的一些想法和代码受到以下项目的启发或重写于以下项目，非常感谢那些创建和开源这些项目的开发者。
+
+* [Spring AI](https://github.com/spring-projects/spring-ai)，一款面向 Spring 开发者的 AI 智能体应用开发框架，提供 Spring 友好的 API 和抽象。基于 Apache License V2 开源协议。
+* [Langgraph](https://github.com/langchain-ai/langgraph)，一个用于使用LLM构建有状态、多参与者应用程序的库，用于创建代理和多代理工作流。基于 MIT 开源协议。
+* [Langgraph4J](https://github.com/bsorrentino/langgraph4j)，[LangGraph]项目的 Java 移植版本。基于 MIT 开源协议。
