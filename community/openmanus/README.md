@@ -2,6 +2,12 @@
 
 The Spring AI implementation of <a href="https://github.com/mannaandpoem/OpenManus/" target="_blank">OpenManus</a>.
 
+
+
+https://github.com/user-attachments/assets/fc8153bc-8353-4d5c-8789-755d2fd7c4f3
+
+
+
 ## How to Run
 
 ### Prerequisites
@@ -30,3 +36,7 @@ Open `OpenManusSpringBootApplication` in the editor and click `run`.
 ```shell
 mvn spring-boot:run
 ```
+
+## Architecture
+![aaa](https://github.com/user-attachments/assets/4ad14a72-667b-456e-85c1-b05eef8fd414)
+
