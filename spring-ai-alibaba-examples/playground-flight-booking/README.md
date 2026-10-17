@@ -26,7 +26,7 @@ Add to the POM the Spring AI Alibaba boot starter:
 <dependency>
     <groupId>org.springframework.ai</groupId>
     <artifactId>spring-ai-alibaba-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0-M2</version>
 </dependency>
 ```
 
@@ -37,6 +37,10 @@ spring.ai.dashscope.api-key=${AI_DASHSCOPE_API_KEY}
 spring.ai.dashscope.chat.options.model=qwen-max
 ```
 
+## Build Frontend (as needed)
+```shell
+mvn clean compile -Denable-frontend-plugin=true  -Pbuild-frontend
+```
 
 ## Build Jar
 
