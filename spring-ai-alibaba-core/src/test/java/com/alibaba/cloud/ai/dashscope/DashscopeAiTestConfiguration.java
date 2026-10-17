@@ -2,14 +2,17 @@ package com.alibaba.cloud.ai.dashscope;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeImageApi;
-import com.alibaba.cloud.ai.dashscope.audio.DashScopeAudioSpeechModelOpenAPI;
-import com.alibaba.cloud.ai.dashscope.audio.DashScopeAudioSpeechOptions;
-import com.alibaba.cloud.ai.dashscope.audio.DashScopeAudioTranscriptionModelOpenAPI;
-import com.alibaba.cloud.ai.dashscope.audio.DashScopeAudioTranscriptionOptions;
+import com.alibaba.cloud.ai.dashscope.api.DashScopeSpeechSynthesisApi;
+import com.alibaba.cloud.ai.dashscope.api.DashScopeAudioTranscriptionApi;
+import com.alibaba.cloud.ai.dashscope.audio.DashScopeSpeechSynthesisModel;
+import com.alibaba.cloud.ai.dashscope.audio.DashScopeSpeechSynthesisOptions;
+import com.alibaba.cloud.ai.dashscope.audio.DashScopeAudioTranscriptionModel;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel;
 import com.alibaba.cloud.ai.dashscope.image.DashScopeImageModel;
+import com.alibaba.cloud.ai.dashscope.rerank.DashScopeRerankModel;
+import com.alibaba.cloud.ai.model.RerankModel;
 import com.alibaba.dashscope.audio.asr.transcription.Transcription;
 import com.alibaba.dashscope.audio.tts.SpeechSynthesizer;
 
@@ -37,6 +40,16 @@ public class DashscopeAiTestConfiguration {
 	}
 
 	@Bean
+	public DashScopeSpeechSynthesisApi dashScopeSpeechSynthesisApi() {
+		return newDashScopeSpeechSynthesisApi(getApiKey());
+	}
+
+	@Bean
+	public DashScopeAudioTranscriptionApi dashScopeAudioTranscriptionApi() {
+		return newDashScopeAudioTranscriptionApi(getApiKey());
+	}
+
+	@Bean
 	public DashScopeApi dashscopeChatApi() {
 		return newDashScopeChatApi(getApiKey());
 	}
@@ -47,6 +60,14 @@ public class DashscopeAiTestConfiguration {
 
 	private DashScopeApi newDashScopeApi(String apiKey) {
 		return new DashScopeApi(apiKey);
+	}
+
+	private DashScopeSpeechSynthesisApi newDashScopeSpeechSynthesisApi(String apiKey) {
+		return new DashScopeSpeechSynthesisApi(apiKey);
+	}
+
+	private DashScopeAudioTranscriptionApi newDashScopeAudioTranscriptionApi(String apiKey) {
+		return new DashScopeAudioTranscriptionApi(apiKey);
 	}
 
 	private DashScopeImageApi newDashScopeImageApi(String apiKey) {
@@ -79,15 +100,16 @@ public class DashscopeAiTestConfiguration {
 	}
 
 	@Bean
-	public DashScopeAudioSpeechModelOpenAPI dashscopeAudioSpeechModel(SpeechSynthesizer speechSynthesizer) {
-		return new DashScopeAudioSpeechModelOpenAPI(null,
-				DashScopeAudioSpeechOptions.builder().withModel("sambert-zhichu-v1").build());
+	public DashScopeSpeechSynthesisModel dashScopeSpeechSynthesisModel(
+			DashScopeSpeechSynthesisApi dashScopeSpeechSynthesisApi) {
+		return new DashScopeSpeechSynthesisModel(dashScopeSpeechSynthesisApi,
+				DashScopeSpeechSynthesisOptions.builder().withModel("cosyvoice-v1").withVoice("longhua").build());
 	}
 
 	@Bean
-	public DashScopeAudioTranscriptionModelOpenAPI dashscopeAudioTranscriptionModel(Transcription transcription) {
-		return new DashScopeAudioTranscriptionModelOpenAPI(null,
-				DashScopeAudioTranscriptionOptions.builder().withModel("paraformer-v2").build());
+	public DashScopeAudioTranscriptionModel dashScopeAudioTranscriptionModel(
+			DashScopeAudioTranscriptionApi dashScopeAudioTranscriptionApi) {
+		return new DashScopeAudioTranscriptionModel(dashScopeAudioTranscriptionApi);
 	}
 
 	@Bean
@@ -101,6 +123,12 @@ public class DashscopeAiTestConfiguration {
 	@ConditionalOnMissingBean
 	public Transcription transcription() {
 		return new Transcription();
+	}
+
+	@Bean
+	@ConditionalOnMissingBean
+	public RerankModel dashscopeRerankModel(DashScopeApi dashscopeApi) {
+		return new DashScopeRerankModel(dashscopeApi);
 	}
 
 }

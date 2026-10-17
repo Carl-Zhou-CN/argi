@@ -16,7 +16,6 @@ import reactor.core.publisher.Flux;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.*;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.ChatCompletionMessage.*;
-import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.ChatCompletionMessage.MediaContent;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi.ChatCompletionOutput.Choice;
 import reactor.core.publisher.Mono;
 
@@ -42,8 +41,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.MimeType;
 
 /**
- * {@link ChatModel} implementation for {@literal Alibaba DashScope}
- * backed by {@link Generation}.
+ * {@link ChatModel} implementation for {@literal Alibaba DashScope} backed by
+ * {@link Generation}.
  *
  * @author yuluo
  * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
@@ -51,6 +50,8 @@ import org.springframework.util.MimeType;
  * @see com.alibaba.dashscope.aigc.generation
  */
 public class DashScopeChatModel extends AbstractToolCallSupport implements ChatModel {
+
+	public static final String MESSAGE_FORMAT = "messageFormat";
 
 	private static final Logger logger = LoggerFactory.getLogger(DashScopeChatModel.class);
 
@@ -67,7 +68,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 		this(dashscopeApi,
 				DashScopeChatOptions.builder()
 					.withModel(DashScopeApi.DEFAULT_CHAT_MODEL)
-					.withTemperature(0.7f)
+					.withTemperature(0.7d)
 					.build());
 	}
 
@@ -150,7 +151,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 					@SuppressWarnings("null")
 					String requestId = chatCompletion2.requestId();
 
-						// @formatter:off
+			// @formatter:off
 						List<Generation> generations = chatCompletion2.output().choices().stream().map(choice -> {
 							if (choice.message().role() != null) {
 								roleMap.putIfAbsent(requestId, choice.message().role().name());
@@ -248,9 +249,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 		options = ModelOptionsUtils.merge(options, this.defaultOptions, DashScopeChatOptions.class);
 
 		if (!CollectionUtils.isEmpty(enabledToolsToUse)) {
-			options = ModelOptionsUtils.merge(
-					DashScopeChatOptions.builder().withTools(this.getFunctionTools(enabledToolsToUse)).build(), options,
-					DashScopeChatOptions.class);
+			options.setTools(this.getFunctionTools(enabledToolsToUse));
 		}
 
 		List<ChatCompletionMessage> chatCompletionMessages = prompt.getInstructions().stream().map(message -> {
@@ -258,16 +257,7 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 				Object content = message.getContent();
 				if (message instanceof UserMessage userMessage) {
 					if (!CollectionUtils.isEmpty(userMessage.getMedia())) {
-						List<MediaContent> contentList = new ArrayList<>(
-								List.of(new MediaContent(message.getContent())));
-
-						contentList.addAll(userMessage.getMedia()
-							.stream()
-							.map(media -> new MediaContent(new MediaContent.ImageUrl(
-									this.fromMediaData(media.getMimeType(), media.getData()))))
-							.toList());
-
-						content = contentList;
+						content = convertMediaContent(userMessage);
 					}
 				}
 
@@ -305,8 +295,41 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 			}
 		}).flatMap(List::stream).toList();
 
+		boolean multiModel = options.getMultiModel();
 		return new ChatCompletionRequest(options.getModel(), new ChatCompletionRequestInput(chatCompletionMessages),
-				toDashScopeRequestParameter(options, stream), stream);
+				toDashScopeRequestParameter(options, stream), stream, multiModel);
+	}
+
+	private List<MediaContent> convertMediaContent(UserMessage message) {
+		MessageFormat format = MessageFormat.IMAGE;
+		if (message.getMetadata().get(MESSAGE_FORMAT) instanceof MessageFormat messageFormat) {
+			format = messageFormat;
+		}
+
+		List<MediaContent> contentList = new ArrayList<>();
+		if (format == MessageFormat.VIDEO) {
+			MediaContent mediaContent = new MediaContent(message.getContent());
+			contentList.add(mediaContent);
+
+			List<String> mediaList = message.getMedia()
+				.stream()
+				.map(media -> this.fromMediaData(media.getMimeType(), media.getData()))
+				.toList();
+
+			contentList.add(new MediaContent("video", null, null, mediaList));
+		}
+		else {
+			MediaContent mediaContent = new MediaContent(message.getContent());
+			contentList.add(mediaContent);
+
+			contentList.addAll(message.getMedia()
+				.stream()
+				.map(media -> new MediaContent("image", null, this.fromMediaData(media.getMimeType(), media.getData()),
+						null))
+				.toList());
+		}
+
+		return contentList;
 	}
 
 	private String fromMediaData(MimeType mimeType, Object mediaContentData) {
@@ -338,11 +361,11 @@ public class DashScopeChatModel extends AbstractToolCallSupport implements ChatM
 			return new ChatCompletionRequestParameter();
 		}
 
-		Boolean incrementalOutput = stream || options.getIncrementalOutput();
+		Boolean incrementalOutput = stream && options.getIncrementalOutput();
 		return new ChatCompletionRequestParameter("message", options.getSeed(), options.getMaxTokens(),
 				options.getTopP(), options.getTopK(), options.getRepetitionPenalty(), options.getPresencePenalty(),
 				options.getTemperature(), options.getStop(), options.getEnableSearch(), incrementalOutput,
-				options.getTools(), options.getToolChoice());
+				options.getTools(), options.getToolChoice(), stream, options.getVlHighResolutionImages());
 	}
 
 }

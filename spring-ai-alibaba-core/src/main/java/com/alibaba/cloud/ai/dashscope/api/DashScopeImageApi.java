@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 the original author or authors.
+ * Copyright 2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ import static com.alibaba.cloud.ai.dashscope.common.DashScopeApiConstants.DEFAUL
 
 /**
  * @author nuocheng.lxm
- * @date 2024/7/31 14:15
+ * @since 1.0.0-M2
  */
 public class DashScopeImageApi {
 
@@ -73,6 +73,8 @@ public class DashScopeImageApi {
 	public ResponseEntity<DashScopeImageAsyncReponse> submitImageGenTask(DashScopeImageRequest request) {
 		return this.restClient.post()
 			.uri("/api/v1/services/aigc/text2image/image-synthesis")
+			// issue: https://github.com/alibaba/spring-ai-alibaba/issues/29
+			.header("X-DashScope-Async", "enable")
 			.body(request)
 			.retrieve()
 			.toEntity(DashScopeImageAsyncReponse.class);
