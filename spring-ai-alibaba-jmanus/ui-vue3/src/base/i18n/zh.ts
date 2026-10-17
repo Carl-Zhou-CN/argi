@@ -107,6 +107,7 @@ const words: I18nType = {
       model: 'Model配置',
       mcp: 'Tools/MCP配置',
       prompt: '动态Prompt配置',
+      namespace: '命名空间配置',
     },
     subGroupDisplayNames: {
       agent: 'Agent',
@@ -117,7 +118,7 @@ const words: I18nType = {
       general: '通用',
       agents: '多智能体',
       infiniteContext: '无限上下文',
-      filesystem: '文件系统'
+      filesystem: '文件系统',
     },
     // Agent配置页面
     agentConfig: {
@@ -200,6 +201,14 @@ const words: I18nType = {
       loadDataFailed: '加载数据失败',
       loadDetailsFailed: '加载Model详情失败',
       invalidFormat: 'Model配置格式不正确：缺少必要字段',
+      validateConfig: '验证配置',
+      validationSuccess: '验证成功',
+      validationFailed: '验证失败',
+      pleaseEnterBaseUrlAndApiKey: '请输入Base URL和API Key',
+      selectModel: '选择模型',
+      availableModels: '可用模型',
+      searchModels: '搜索模型...',
+      getModelsCount: '获取到 {count} 个可用模型',
     },
     // MCP配置页面
     mcpConfig: {
@@ -210,7 +219,7 @@ const words: I18nType = {
       noServers: '暂无MCP服务器配置',
       connectionType: '连接类型',
       configJsonLabel: 'mcp json配置：',
-      configJsonPlaceholder: '请输入MCP服务器的配置(JSON格式)...',
+      configJsonPlaceholder: '请输入或粘贴MCP配置的JSON内容...',
       instructions: '使用说明：',
       instructionStep1: '找到你要用的mcp server的配置json：',
       instructionStep1Local: '本地(STDIO)',
@@ -224,52 +233,116 @@ const words: I18nType = {
         '然后需要在Agent配置里面，新建一个agent，然后增加指定你刚才添加的mcp tools，这样可以极大减少冲突，增强tools被agent选择的准确性',
       configRequired: '请输入MCP服务器配置',
       invalidJson: '配置JSON格式不正确，请检查语法',
-      addFailed: '添加MCP服务器失败，请重试',
-      deleteFailed: '删除MCP服务器失败，请重试',
+      addFailed: '添加失败',
+      deleteFailed: '删除失败',
       deleteConfirm: '确定要删除这个MCP服务器配置吗？此操作不可恢复。',
-      addSuccess: '添加MCP服务器成功',
-      deleteSuccess: '删除MCP服务器成功',
+      addSuccess: '添加成功',
+      deleteSuccess: '删除成功',
+      formatJson: '格式化JSON',
+      jsonStatusEmpty: '请输入JSON配置...',
+      jsonStatusValid: 'JSON格式有效',
+      jsonStatusInvalid: 'JSON格式无效',
+      missingMcpServers: '❌ 缺少mcpServers属性 - 请确保JSON包含mcpServers对象',
+      invalidServerConfig: '❌ 服务器配置无效: {serverId} - 服务器配置必须是对象',
+      invalidArgs: '❌ args字段必须是数组: {serverId} - 请将args改为数组格式',
+      invalidEnv: '❌ env字段必须是对象: {serverId} - 请将env改为对象格式',
+      invalidArgsType: '❌ args数组元素必须是字符串: {serverId}, 索引: {index} - 请确保所有参数都是字符串',
+      invalidEnvType: '❌ env对象值必须是字符串: {serverId}, 键: {key} - 环境变量值必须是字符串',
+      missingUrl: '❌ 缺少url字段: {serverId} - 没有command时必须有url',
+      invalidUrl: '❌ url格式无效: {serverId} - 请检查URL格式是否正确',
       studioExample:
         '请输入MCP服务器配置JSON。\n\n例如：\n{\n  "mcpServers": {\n    "github": {\n      "command": "npx",\n      "args": [\n        "-y",\n        "@modelcontextprotocol/server-github"\n      ],\n      "env": {\n        "GITHUB_PERSONAL_ACCESS_TOKEN": "<YOUR_TOKEN>"\n      }\n    }\n  }\n}',
       sseExample:
         '请输入SSE MCP服务器配置JSON。\n\n例如：\n{\n  "mcpServers": {\n    "remote-server": {\n      "url": "https://example.com/mcp",\n      "headers": {\n        "Authorization": "Bearer <YOUR_TOKEN>"\n      }\n    }\n  }\n}',
+      selectServerHint: '请选择左侧的MCP服务器，或点击新建MCP配置',
+      jsonEditor: 'JSON编辑器',
+      jsonConfigEmpty: 'JSON配置不能为空',
+      jsonFormatError: 'JSON格式错误',
+      jsonConfigSaved: 'JSON配置已保存',
+      confirmDelete: '确认删除',
+      deleteConfirmMessage: '确定要删除这个MCP服务器配置吗？此操作不可恢复。',
+      deleteWarningText: '删除后无法恢复，请谨慎操作。',
+      noServerSelected: '未选择MCP服务器',
+      updateSuccess: '更新成功',
+      saveFailed: '保存失败，请重试',
+      operationFailed: '操作失败',
+      mcpServerNamePlaceholder: '请输入MCP服务器名称',
+      enabled: '启用',
+      disabled: '禁用',
+      newMcpConfig: '新建MCP配置',
+      importAll: '全部导入',
+      exportAll: '全部导出',
+      command: 'Command',
+      args: 'Args',
+      env: 'Env',
+      url: 'URL',
+      save: '保存',
+      delete: '删除',
+      reset: '重置',
+      import: '导入',
+      cancel: '取消',
+      exportSuccess: '导出成功',
+      exportFailed: '导出失败',
+      statusToggleSuccess: '状态切换成功',
+      statusToggleFailed: '状态切换失败',
+      missingUrlField: '缺少url字段: {serverId} - 没有command时必须有url或baseUrl',
+      urlFieldTip: '💡 需要提供 url 或 baseUrl 字段',
+      serverConfigWarning: 'Server {serverId} has no command but also no url or baseUrl',
+      jsonSyntaxError: '❌ JSON语法错误 - 请检查括号、逗号、引号等符号是否正确',
+      jsonIncomplete: '❌ JSON不完整 - 请检查是否缺少结束括号或引号',
+      jsonNumberError: '❌ JSON数字格式错误 - 请检查数字格式',
+      jsonStringError: '❌ JSON字符串格式错误 - 请检查引号是否配对',
+      jsonSyntaxErrorWithMessage: '❌ JSON语法错误: {message}',
+      correctFormatExample: '💡 正确格式示例: {"mcpServers": {"server-id": {"name": "服务器名称", "url": "服务器地址"}}}',
+      commandPlaceholder: '例如: uvx',
+      urlPlaceholder: '例如: https://mcp.example.com/server',
+      argsPlaceholder: '每行一个参数，例如:\n--from\nmysql_mcp_server_pro\n--mode\nstdio',
+      envPlaceholder: '键值对格式，每行一个，例如:\nMYSQL_HOST:127.0.0.1\nMYSQL_PORT:3306\nMYSQL_USER:root',
+      connectionTypePlaceholder: '请选择连接类型',
+      argsFormatError: 'Args格式错误，请输入有效的JSON数组',
+      envFormatError: 'Env格式错误，请输入有效的JSON对象',
+      argsStringError: 'Args格式错误，每个参数必须是字符串',
+      envStringError: 'Env格式错误，每个值必须是字符串',
+      importSuccess: '导入成功',
+      importFailed: '导入失败',
+      importInvalidJson: '导入的JSON无效',
     },
     // 基础配置
     basicConfig: {
       title: '基础配置',
       browserSettings: {
         headless: '是否使用无头浏览器模式',
-        requestTimeout: '浏览器请求超时时间(秒)'
+        requestTimeout: '浏览器请求超时时间(秒)',
       },
       general: {
         debugDetail: 'debug模式 ：会要求模型输出更多内容，方便查找问题，但速度更慢',
-        baseDir: 'manus根目录'
+        baseDir: 'manus根目录',
       },
       interactionSettings: {
-        openBrowser: '启动时自动打开浏览器'
+        openBrowser: '启动时自动打开浏览器',
       },
       agentSettings: {
         maxSteps: '智能体执行最大步数',
         userInputTimeout: '用户输入表单等待超时时间(秒)',
         maxMemory: '能记住的最大消息数',
-        parallelToolCalls: '并行工具调用'
+        parallelToolCalls: '并行工具调用',
       },
       agents: {
-        forceOverrideFromYaml: '强制使用YAML配置文件覆盖同名Agent'
+        forceOverrideFromYaml: '强制使用YAML配置文件覆盖同名Agent',
       },
       infiniteContext: {
         enabled: '是否开启无限上下文',
         parallelThreads: '并行处理线程数',
-        taskContextSize: '触发无限上下文的字符数阈值(字符数)'
+        taskContextSize: '触发无限上下文的字符数阈值(字符数)',
       },
       fileSystem: {
-        allowExternalAccess: '是否允许文件操作超出工作目录'
+        allowExternalAccess: '是否允许文件操作超出工作目录',
       },
       systemSettings: {
         systemName: '系统名称',
         language: '语言',
         maxThreads: '最大线程数',
-        timeoutSeconds: '请求超时时间(秒)'
+        timeoutSeconds: '请求超时时间(秒)',
       },
       totalConfigs: '总配置数',
       modified: '已修改',
@@ -332,10 +405,19 @@ const words: I18nType = {
       deleteConfirm: '删除确认',
       deleteConfirmText: '确定要删除',
       deleteWarning: '此操作不可恢复。',
+      exportSuccess: '配置导出成功',
+      exportFailed: '导出配置失败',
+      importSuccess: '配置导入成功',
+      importFailed: '导入配置失败',
     },
     namespaceConfig: {
       title: '命名空间配置',
+      name: '命名空间名称',
+      code: '命名空间编码',
+      host:"域名",
+      description: '命名空间描述',
       loadDetailsFailed: '加载namespace详情失败',
+      selectNameSpaceHint: '请选择一个命名空间进行配置',
       createNew: '新建命名空间',
       placeholder: '请输入',
       saveSuccess: '保存成功',
@@ -346,6 +428,11 @@ const words: I18nType = {
       deleteConfirmText: '确定要删除',
       deleteWarning: '此操作不可恢复。',
       configured: '已配置的命名空间',
+
+      namespace: {
+        selectNamespace: '请选择命名空间',
+        namespace: '命名空间',
+      },
     },
   },
 
@@ -662,18 +749,12 @@ const words: I18nType = {
     welcomeSubtitle: '您的 Java AI 智能助手，帮助您构建和完成各种任务。',
     tagline: 'Java AI 智能体',
     inputPlaceholder: '描述您想构建或完成的内容...',
-    directButton: 'Plan-Act 工作台',
+    directButton: '直接进入工作台',
     examples: {
       stockPrice: {
         title: '查询股价',
         description: '获取今天阿里巴巴的最新股价（Agent可以使用浏览器工具）',
         prompt: '用浏览器基于百度，查询今天阿里巴巴的股价，并返回最新股价',
-      },
-      novel: {
-        title: '生成一个中篇小说',
-        description: '帮我生成一个中篇小说（Agent可以生成更长的内容）',
-        prompt:
-          '请帮我写一个关于机器人取代人类的小说。20000字。 使用TEXT_FILE_AGENT ，先生成提纲，然后，完善和丰满整个提纲的内容为一篇通顺的小说，最后再全局通顺一下语法',
       },
       weather: {
         title: '查询天气',
@@ -682,8 +763,13 @@ const words: I18nType = {
       },
       queryplan: {
         title: '查询一个人的信息',
-        description: '查询沈询 阿里的所有信息并优化终止结构列',
+        description: '查询 沈询 阿里的所有信息（用于展示无限上下文能力）',
         prompt: '用浏览器，基于百度，查询计划',
+      },
+      ainovel: {
+        title: 'AI小说创作',
+        description: '人工智能逐步击败人类主题小说（用于展示超长内容的输出）',
+        prompt: '创建一个关于人工智能逐步击败人类的小说，包含10个章节',
       },
     },
   },
@@ -765,6 +851,7 @@ const words: I18nType = {
   // 定时任务
   cronTask: {
     title: '定时任务管理',
+    addTask: '定时任务',
     noTasks: '暂无定时任务',
     taskName: '任务名称',
     taskNamePlaceholder: '请输入任务名称',
@@ -788,6 +875,18 @@ const words: I18nType = {
     updateTime: '更新时间',
     active: '启用',
     inactive: '禁用',
+    template: '示例：每天帮我早上8点，帮我收集当天的AI新闻吧',
+    planTemplate: '计划模板',
+    linkTemplate: '关联模板',
+    noTemplate: '不关联',
+    selectTemplate: '请选择模板',
+    templateHelpText: '选择后，定时任务将按照制定好的计划执行',
+    createTask: '创建定时任务',
+    selectCreateMethod: '请选择创建方式',
+    createWithJmanus: '让Jmanus帮忙创建',
+    createWithJmanusDesc: '通过AI助手引导创建定时任务',
+    createManually: '手动创建',
+    createManuallyDesc: '自己填写定时任务信息',
   },
 }
 
