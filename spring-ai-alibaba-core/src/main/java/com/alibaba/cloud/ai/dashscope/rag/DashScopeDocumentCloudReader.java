@@ -35,7 +35,7 @@ import org.springframework.http.ResponseEntity;
 
 /**
  * @author nuocheng.lxm
- * @date 2024/7/22 14:40 百炼云端文档解析，主要是走当前数据中心逻辑
+ * @since 2024/7/22 14:40 百炼云端文档解析，主要是走当前数据中心逻辑
  *
  */
 public class DashScopeDocumentCloudReader implements DocumentReader {
@@ -108,7 +108,7 @@ public class DashScopeDocumentCloudReader implements DocumentReader {
 	private Document toDocument(String fileId, String parseResultText) {
 		Map<String, Object> metaData = new HashMap<>();
 		metaData.put("parse_fmt_type", "DASHSCOPE_DOCMIND");
-        return new Document(fileId, parseResultText, metaData);
+		return new Document(fileId, parseResultText, metaData);
 	}
 
 }

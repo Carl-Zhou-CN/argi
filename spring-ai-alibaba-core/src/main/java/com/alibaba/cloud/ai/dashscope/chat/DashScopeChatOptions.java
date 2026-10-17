@@ -22,7 +22,7 @@ import org.springframework.util.Assert;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class DashScopeChatOptions implements FunctionCallingOptions, ChatOptions {
 
-  // @formatter:off
+	// @formatter:off
   /** ID of the model to use. */
   @JsonProperty("model")
   private String model;
@@ -74,7 +74,7 @@ public class DashScopeChatOptions implements FunctionCallingOptions, ChatOptions
   /**
    * 控制在流式输出模式下是否开启增量输出，即后续输出内容是否包含已输出的内容。设置为True时，将开启增量输出模式，后面输出不会包含已经输出的内容，您需要自行拼接整体输出；设置为False则会包含已输出的内容。
    */
-  private @JsonProperty("incremental_output") Boolean incrementalOutput = false;
+  private @JsonProperty("incremental_output") Boolean incrementalOutput = true;
 
   /** 用于控制模型生成时的重复度。提高repetition_penalty时可以降低模型生成的重复度。1.0表示不做惩罚。默认为1.1。 */
   private @JsonProperty("repetition_penalty") Float repetitionPenalty;
@@ -328,6 +328,9 @@ public class DashScopeChatOptions implements FunctionCallingOptions, ChatOptions
     }
 
     public DashScopeChatOptions build() {
+      if ((this.options.getStream() == null || !this.options.getStream()) && this.options.getIncrementalOutput()) {
+        this.options.setIncrementalOutput(false);
+      }
       return this.options;
     }
   }
@@ -341,6 +344,7 @@ public class DashScopeChatOptions implements FunctionCallingOptions, ChatOptions
         .withStop(fromOptions.getStop())
         .withStream(fromOptions.getStream())
         .withEnableSearch(fromOptions.enableSearch)
+        .withIncrementalOutput(fromOptions.getIncrementalOutput())
         .withFunctionCallbacks(fromOptions.getFunctionCallbacks())
         .withFunctions(fromOptions.getFunctions())
         .withRepetitionPenalty(fromOptions.getRepetitionPenalty())
