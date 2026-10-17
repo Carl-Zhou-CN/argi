@@ -39,8 +39,7 @@ import static com.alibaba.cloud.ai.dashscope.common.DashScopeApiConstants.DEFAUL
 /**
  * @author nuocheng.lxm
  * @author yuluo
- *
- * @date 2024/7/31 14:15
+ * @since 1.0.0-M2
  */
 public class DashScopeApi {
 
@@ -359,7 +358,7 @@ public class DashScopeApi {
 					uploadLeaseResponse.message()));
 		}
 		uploadFile(file, uploadLeaseResponse);
-        return addFile(uploadLeaseResponse.data.leaseId(), request);
+		return addFile(uploadLeaseResponse.data.leaseId(), request);
 	}
 
 	public ResponseEntity<CommonResponse<QueryFileResponseData>> queryFileInfo(String categoryId,
@@ -690,8 +689,7 @@ public class DashScopeApi {
 			.body(upsertPipelineRequest)
 			.retrieve()
 			.toEntity(StartPipelineResponse.class);
-		if (startPipelineResponse.getBody() == null
-				|| !"SUCCESS".equalsIgnoreCase(startPipelineResponse.getBody().code)
+		if (startPipelineResponse.getBody() == null || !"SUCCESS".equalsIgnoreCase(startPipelineResponse.getBody().code)
 				|| startPipelineResponse.getBody().ingestionId == null) {
 			throw new DashScopeException(ErrorCodeEnum.INDEX_ADD_DOCUMENT_ERROR);
 		}
@@ -862,13 +860,14 @@ public class DashScopeApi {
 			@JsonProperty("presence_penalty") Float presencePenalty, @JsonProperty("temperature") Float temperature,
 			@JsonProperty("stop") List<Object> stop, @JsonProperty("enable_search") Boolean enableSearch,
 			@JsonProperty("incremental_output") Boolean incrementalOutput,
-			@JsonProperty("tools") List<FunctionTool> tools, @JsonProperty("tool_choice") Object toolChoice) {
+			@JsonProperty("tools") List<FunctionTool> tools, @JsonProperty("tool_choice") Object toolChoice,
+			@JsonProperty("stream") Boolean stream) {
 
 		/**
 		 * shortcut constructor for chat request parameter
 		 */
 		public ChatCompletionRequestParameter() {
-			this(null, null, null, null, null, null, null, null, null, null, null, null, null);
+			this(null, null, null, null, null, null, null, null, null, null, null, null, null, null);
 		}
 
 		/**
@@ -1239,8 +1238,6 @@ public class DashScopeApi {
 			.toEntity(ChatCompletion.class);
 	}
 
-	private final DashScopeAiStreamFunctionCallingHelper chunkMerger = new DashScopeAiStreamFunctionCallingHelper();
-
 	/**
 	 * Creates a streaming chat response for the given chat conversation.
 	 * @param chatRequest The chat completion request. Must have the stream property set
@@ -1253,6 +1250,10 @@ public class DashScopeApi {
 		Assert.isTrue(chatRequest.stream(), "Request must set the stream property to true.");
 
 		AtomicBoolean isInsideTool = new AtomicBoolean(false);
+		boolean incrementalOutput = chatRequest.parameters() != null
+				&& chatRequest.parameters().incrementalOutput != null && chatRequest.parameters().incrementalOutput;
+		DashScopeAiStreamFunctionCallingHelper chunkMerger = new DashScopeAiStreamFunctionCallingHelper(
+				incrementalOutput);
 
 		return this.webClient.post()
 			.uri("/api/v1/services/aigc/text-generation/generation")
@@ -1264,13 +1265,13 @@ public class DashScopeApi {
 			.filter(SSE_DONE_PREDICATE.negate())
 			.map(content -> ModelOptionsUtils.jsonToObject(content, ChatCompletionChunk.class))
 			.map(chunk -> {
-				if (this.chunkMerger.isStreamingToolFunctionCall(chunk)) {
+				if (chunkMerger.isStreamingToolFunctionCall(chunk)) {
 					isInsideTool.set(true);
 				}
 				return chunk;
 			})
 			.windowUntil(chunk -> {
-				if (isInsideTool.get() && this.chunkMerger.isStreamingToolFunctionCallFinish(chunk)) {
+				if (isInsideTool.get() && chunkMerger.isStreamingToolFunctionCallFinish(chunk)) {
 					isInsideTool.set(false);
 					return true;
 				}
@@ -1278,7 +1279,7 @@ public class DashScopeApi {
 			})
 			.concatMapIterable(window -> {
 				Mono<ChatCompletionChunk> monoChunk = window.reduce(new ChatCompletionChunk(null, null, null),
-						this.chunkMerger::merge);
+						chunkMerger::merge);
 				return List.of(monoChunk);
 			})
 			.flatMap(mono -> mono);

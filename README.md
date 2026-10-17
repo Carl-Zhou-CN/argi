@@ -9,17 +9,34 @@ Please refer to [quick start](https://sca.aliyun.com/ai/get-started/) for how to
 
 Overall, it takes only two steps to turn your Spring Boot application into an intelligent agent:
 
+> Because Spring AI Alibaba is developed based on Spring Boot 3.x, it requires JDK version 17 and above.
+
 1. Add 'spring-ai-alibaba-starter' dependency to your project.
 
 ```xml
 <dependency>
-	<groupId>com.alibaba.ai</groupId>
+	<groupId>com.alibaba.cloud.ai</groupId>
 	<artifactId>spring-ai-alibaba-starter</artifactId>
-	<version>1.0.0-SNAPSHOT</version>
+	<version>1.0.0-M2.1</version>
 </dependency>
 ```
 
-2. Inject the default 'ChatClient' Bean to regular Controller beans.
+> NOTICE! Since spring-ai related packages haven't been published to the central repo yet, it's needed to add the following maven repository to your project in order to successfully resolve artifacts like  spring-ai-core.
+>
+> ```xml
+> <repositories>
+> 	<repository>
+> 		<id>spring-milestones</id>
+> 		<name>Spring Milestones</name>
+> 		<url>https://repo.spring.io/milestone</url>
+> 		<snapshots>
+> 			<enabled>false</enabled>
+> 		</snapshots>
+> 	</repository>
+> </repositories>
+> ```
+
+2. Inject the default `ChatClient` Bean to regular Controller beans.
 
 ```java
 @RestController
@@ -40,6 +57,17 @@ public class ChatController {
 	}
 }
 ```
+
+## Examples
+More examples can be found at [spring-ai-alibaba-examples](./spring-ai-alibaba-examples).
+
+* Hello World
+* Chat Model
+* Function Calling
+* Structured Output
+* Prompt
+* RAG
+* Flight Booking Playground, an advanced example showcasing usage of prompt template, function calling, chat memory and rag at the same time.
 
 ## Core Features
 
