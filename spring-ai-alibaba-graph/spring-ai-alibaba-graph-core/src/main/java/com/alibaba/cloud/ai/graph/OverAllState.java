@@ -1,3 +1,18 @@
+/*
+ * Copyright 2024-2025 the original author or authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.alibaba.cloud.ai.graph;
 
 import lombok.ToString;
@@ -22,6 +37,10 @@ public final class OverAllState implements Serializable {
 	private final Map<String, KeyStrategy> keyStrategies;
 
 	private Boolean resume;
+
+	private HumanFeedback humanFeedback;
+
+	private String interruptMessage;
 
 	/**
 	 * The constant DEFAULT_INPUT_KEY.
@@ -51,7 +70,7 @@ public final class OverAllState implements Serializable {
 	 * @param data the data
 	 */
 	public OverAllState(Map<String, Object> data) {
-		this.data = data;
+		this.data = new HashMap<>(data);
 		this.keyStrategies = new HashMap<>();
 		this.resume = false;
 	}
@@ -73,6 +92,22 @@ public final class OverAllState implements Serializable {
 		this.resume = resume;
 	}
 
+	public String interruptMessage() {
+		return interruptMessage;
+	}
+
+	public void setInterruptMessage(String interruptMessage) {
+		this.interruptMessage = interruptMessage;
+	}
+
+	public void withHumanFeedback(HumanFeedback humanFeedback) {
+		this.humanFeedback = humanFeedback;
+	}
+
+	public HumanFeedback humanFeedback() {
+		return this.humanFeedback;
+	}
+
 	/**
 	 * Copy with resume over all state.
 	 * @return the over all state
@@ -85,7 +120,7 @@ public final class OverAllState implements Serializable {
 		this.resume = true;
 	}
 
-	public void withOutResume() {
+	public void withoutResume() {
 		this.resume = false;
 	}
 
@@ -237,6 +272,13 @@ public final class OverAllState implements Serializable {
 		return ofNullable((T) data().get(key));
 	}
 
+	public final <T> Optional<T> value(String key, Class<T> type) {
+		if (type != null) {
+			return ofNullable(type.cast(data().get(key)));
+		}
+		return value(key);
+	}
+
 	/**
 	 * Value t.
 	 * @param <T> the type parameter
@@ -248,4 +290,30 @@ public final class OverAllState implements Serializable {
 		return (T) value(key).orElse(defaultValue);
 	}
 
+	public static class HumanFeedback {
+		private Map<String, Object> data;
+		private String nextNodeId;
+		private String currentNodeId;
+
+		public HumanFeedback(Map<String, Object> data, String nextNodeId) {
+			this.data = data;
+			this.nextNodeId = nextNodeId;
+		}
+
+		public Map<String, Object> data() {
+			return data;
+		}
+
+		public String nextNodeId() {
+			return nextNodeId;
+		}
+
+		public void setData(Map<String, Object> data) {
+			this.data = data;
+		}
+
+		public void setNextNodeId(String nextNodeId) {
+			this.nextNodeId = nextNodeId;
+		}
+	}
 }
