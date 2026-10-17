@@ -31,16 +31,17 @@
 	<artifactId>spring-ai-alibaba-starter</artifactId>
 	<name>Spring AI Alibaba Starter</name>
 	<packaging>jar</packaging>
+	<url>https://github.com/alibaba/spring-ai-alibaba</url>
+	<scm>
+		<url>https://github.com/alibaba/spring-ai-alibaba</url>
+		<connection>git://github.com/alibaba/spring-ai-alibaba.git</connection>
+		<developerConnection>git@github.com:alibaba/spring-ai-alibaba.git</developerConnection>
+	</scm>
 
 	<dependencies>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter</artifactId>
-		</dependency>
-
-		<dependency>
 			<groupId>com.alibaba.cloud.ai</groupId>
-			<artifactId>spring-ai-alibaba-core</artifactId>
+			<artifactId>spring-ai-alibaba-autoconfigure</artifactId>
 			<version>${project.parent.version}</version>
 		</dependency>
 	</dependencies>
