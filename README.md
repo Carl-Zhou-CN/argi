@@ -1,6 +1,8 @@
+> The community driven Spring AI Alibaba OpenManus implementtation can be found at [community/openmanus](./community/openmanus) module.
+
 # [Spring AI Alibaba](https://java2ai.com)
 
-[中文版本](./README-zh.md)
+[中文版本](./README-zh.md) | [日本語](./README-ja.md)
 
 An AI application framework for Java developers built on top of Spring AI that provides seamless integration with Alibaba Cloud QWen LLM services and cloud-native infrastructures.
 
