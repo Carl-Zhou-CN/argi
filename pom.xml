@@ -57,6 +57,7 @@
         <module>spring-ai-alibaba-studio</module>
         <module>spring-ai-alibaba-jmanus</module>
         <module>spring-ai-alibaba-deepresearch</module>
+        <module>spring-ai-alibaba-nl2sql</module>
 
         <!-- Spring AI Alibaba Tool Call Plugins -->
         <module>community/tool-calls/spring-ai-alibaba-starter-tool-calling-common</module>
@@ -154,6 +155,7 @@
         <module>spring-ai-alibaba-spring-boot-starters/spring-ai-alibaba-starter-arms-observation</module>
         <module>spring-ai-alibaba-spring-boot-starters/spring-ai-alibaba-starter-nacos-mcp-client</module>
         <module>spring-ai-alibaba-spring-boot-starters/spring-ai-alibaba-starter-nacos-mcp-server</module>
+        <module>spring-ai-alibaba-spring-boot-starters/spring-ai-alibaba-starter-nl2sql</module>
     </modules>
 
     <scm>
@@ -242,6 +244,7 @@
         <spring-javaformat-maven-plugin.version>0.0.39</spring-javaformat-maven-plugin.version>
         <maven-project-info-reports-plugin.version>3.4.5</maven-project-info-reports-plugin.version>
         <sorter-maven-plugin.version>1.0.1</sorter-maven-plugin.version>
+        <maven.deploy.skip>false</maven.deploy.skip>
 
         <!-- CheckStyle Maven Plugin -->
         <maven-checkstyle-plugin.version>3.5.0</maven-checkstyle-plugin.version>
@@ -505,6 +508,9 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-deploy-plugin</artifactId>
                 <version>${maven-deploy-plugin.version}</version>
+                <configuration>
+                    <skip>${maven.deploy.skip}</skip>
+                </configuration>
             </plugin>
         </plugins>
     </build>
