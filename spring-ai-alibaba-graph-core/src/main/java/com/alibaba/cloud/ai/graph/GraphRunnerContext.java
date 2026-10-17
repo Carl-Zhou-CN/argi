@@ -19,7 +19,7 @@ import com.alibaba.cloud.ai.graph.action.AsyncNodeActionWithConfig;
 import com.alibaba.cloud.ai.graph.action.Command;
 import com.alibaba.cloud.ai.graph.checkpoint.Checkpoint;
 import com.alibaba.cloud.ai.graph.exception.RunnableErrors;
-import com.alibaba.cloud.ai.graph.internal.node.SubCompiledGraphNodeAction;
+import com.alibaba.cloud.ai.graph.internal.node.ResumableSubGraphAction;
 import com.alibaba.cloud.ai.graph.state.StateSnapshot;
 import com.alibaba.cloud.ai.graph.streaming.GraphFlux;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
@@ -81,7 +81,7 @@ public class GraphRunnerContext {
 		this.compiledGraph = compiledGraph;
 		this.config = config;
 
-		if (config.metadata(RunnableConfig.HUMAN_FEEDBACK_METADATA_KEY).isPresent()) {
+		if (config.metadata(RunnableConfig.HUMAN_FEEDBACK_METADATA_KEY).isPresent() || config.checkPointId().isPresent()) {
 			initializeFromResume(initialState, config);
 		} else {
 			initializeFromStart(initialState, config);
@@ -97,12 +97,12 @@ public class GraphRunnerContext {
 				.orElseThrow(() -> new IllegalStateException("Resume request without a valid checkpoint!"));
 
 		var startCheckpointNextNodeAction = compiledGraph.getNodeAction(checkpoint.getNextNodeId());
-		if (startCheckpointNextNodeAction instanceof SubCompiledGraphNodeAction action) {
+		if (startCheckpointNextNodeAction instanceof ResumableSubGraphAction resumableAction) {
 			// RESUME FORM SUBGRAPH DETECTED
 			this.config = RunnableConfig.builder(config)
 					.checkPointId(null) // Reset checkpoint id
 					.clearContext()
-					.addMetadata(action.getResumeSubGraphId(), true) // add metadata for
+					.addMetadata(resumableAction.getResumeSubGraphId(), true) // add metadata for
 					// sub graph
 					.build();
 		} else {
@@ -287,6 +287,14 @@ public class GraphRunnerContext {
 	public StreamingOutput<?> buildStreamingOutput(Message message, String nodeId) {
 		// Create StreamingOutput with chunk only
 		StreamingOutput<?> output = new StreamingOutput<>(message, nodeId, (String) config.metadata("_AGENT_").orElse(""),
+				this.overallState);
+		output.setSubGraph(true);
+		return output;
+	}
+
+	public StreamingOutput<?> buildStreamingOutput(Object originData, String nodeId) {
+		// Create StreamingOutput with chunk only
+		StreamingOutput<?> output = new StreamingOutput<>(originData, nodeId, (String) config.metadata("_AGENT_").orElse(""),
 				this.overallState);
 		output.setSubGraph(true);
 		return output;
