@@ -25,6 +25,7 @@ import com.alibaba.cloud.ai.graph.action.AsyncNodeActionWithConfig;
 import com.alibaba.cloud.ai.graph.action.Command;
 import com.alibaba.cloud.ai.graph.action.InterruptableAction;
 import com.alibaba.cloud.ai.graph.action.InterruptionMetadata;
+import com.alibaba.cloud.ai.graph.checkpoint.BaseCheckpointSaver;
 import com.alibaba.cloud.ai.graph.exception.RunnableErrors;
 import com.alibaba.cloud.ai.graph.streaming.GraphFlux;
 import com.alibaba.cloud.ai.graph.streaming.ParallelGraphFlux;
@@ -53,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -204,9 +206,9 @@ public class NodeExecutor extends BaseGraphExecutor {
 			NodeOutput output = context.buildNodeOutputAndAddCheckpoint(updateState);
 
 			context.doListeners(NODE_AFTER, null);
-			// Recursively call the main execution handler
-			return Flux.just(GraphResponse.of(output))
-				.concatWith(Flux.defer(() -> mainGraphExecutor.execute(context, resultValue)));
+			// Continue with the main execution handler (expanded iteratively by GraphRunner)
+			return Flux.just(GraphResponse.of(output),
+					GraphResponse.continueWith(() -> mainGraphExecutor.execute(context, resultValue)));
 		}
 		catch (Exception e) {
 			return Flux.just(GraphResponse.error(e));
@@ -226,6 +228,7 @@ public class NodeExecutor extends BaseGraphExecutor {
 			GraphRunnerContext context, Flux<?> rawFlux, String key, String nodeId) {
 		var lastChatResponseRef = new AtomicReference<ChatResponse>(null);
 		var lastGraphResponseRef = new AtomicReference<GraphResponse<NodeOutput>>(null);
+		var upstreamAlreadyEmittedCompletion = new AtomicBoolean(false);
 
 		return rawFlux.filter(element -> {
 				// Don't filter out Exception/Throwable - we need to handle them
@@ -290,6 +293,9 @@ public class NodeExecutor extends BaseGraphExecutor {
 				}
 				else if (element instanceof GraphResponse) {
 					GraphResponse<NodeOutput> graphResponse = (GraphResponse<NodeOutput>) element;
+					if (graphResponse.isDone() || graphResponse.resultValue().isPresent()) {
+						upstreamAlreadyEmittedCompletion.set(true);
+					}
 					lastGraphResponseRef.set(graphResponse);
 					return graphResponse;
 				} else if (element instanceof NodeOutput nodeOutput) {
@@ -320,6 +326,9 @@ public class NodeExecutor extends BaseGraphExecutor {
 				return Flux.just(errorResponse);
 			})
 			.concatWith(Flux.defer(() -> {
+				if (upstreamAlreadyEmittedCompletion.get()) {
+					return Flux.empty();
+				}
 				if (lastChatResponseRef.get() == null) {
 					GraphResponse<NodeOutput> lastGraphResponse = lastGraphResponseRef.get();
 					if (lastGraphResponse != null && lastGraphResponse.resultValue().isPresent()) {
@@ -569,6 +578,10 @@ public class NodeExecutor extends BaseGraphExecutor {
 				if (value instanceof Map<?, ?>) {
 					updateState = (Map<String, Object>) value;
 				}
+				else if (value instanceof BaseCheckpointSaver.Tag) {
+					// When releaseThread=true, completion may return a Tag.
+					// Tag is a checkpoint-release receipt, not a state update, so skip merge here.
+				}
 				else {
 					throw new IllegalArgumentException("Node stream must return Map result using Data.done(),");
 				}
@@ -596,7 +609,8 @@ public class NodeExecutor extends BaseGraphExecutor {
 		});
 
 		return processedFlux
-			.concatWith(updateContextMono.thenMany(Flux.defer(() -> mainGraphExecutor.execute(context, resultValue))));
+			.concatWith(updateContextMono.thenMany(Flux
+				.just(GraphResponse.continueWith(() -> mainGraphExecutor.execute(context, resultValue)))));
 	}
 
 	/**
@@ -764,7 +778,8 @@ public class NodeExecutor extends BaseGraphExecutor {
 		});
 
 		return processedFlux
-				.concatWith(updateContextMono.thenMany(Flux.defer(() -> mainGraphExecutor.execute(context, resultValue))));
+				.concatWith(updateContextMono.thenMany(Flux
+					.just(GraphResponse.continueWith(() -> mainGraphExecutor.execute(context, resultValue)))));
 	}
 
 	private Map<String, Object> graphFluxResultState(GraphFlux<?> graphFlux, Object lastData) {
@@ -916,7 +931,8 @@ public class NodeExecutor extends BaseGraphExecutor {
 		});
 
 		return mergedFlux
-				.concatWith(updateContextMono.thenMany(Flux.defer(() -> mainGraphExecutor.execute(context, resultValue))));
+				.concatWith(updateContextMono.thenMany(Flux
+					.just(GraphResponse.continueWith(() -> mainGraphExecutor.execute(context, resultValue)))));
 	}
 
 	/**
@@ -939,8 +955,8 @@ public class NodeExecutor extends BaseGraphExecutor {
 		}
 
 		NodeOutput output = context.buildNodeOutputAndAddCheckpoint(partialState);
-		// Recursively call the main execution handler
-		return Flux.just(GraphResponse.of(output))
-				.concatWith(Flux.defer(() -> mainGraphExecutor.execute(context, resultValue)));
+		// Continue with the main execution handler (expanded iteratively by GraphRunner)
+		return Flux.just(GraphResponse.of(output),
+				GraphResponse.continueWith(() -> mainGraphExecutor.execute(context, resultValue)));
 	}
 }
