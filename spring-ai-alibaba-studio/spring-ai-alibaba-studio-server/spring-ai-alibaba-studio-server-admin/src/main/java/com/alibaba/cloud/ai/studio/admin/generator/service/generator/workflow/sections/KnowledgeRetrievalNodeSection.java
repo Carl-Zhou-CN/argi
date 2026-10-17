@@ -29,6 +29,7 @@ import com.alibaba.cloud.ai.studio.runtime.domain.PagingList;
 import com.alibaba.cloud.ai.studio.runtime.domain.knowledgebase.Document;
 import com.alibaba.cloud.ai.studio.runtime.domain.knowledgebase.DocumentQuery;
 import com.alibaba.cloud.ai.studio.runtime.enums.DocumentType;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -54,9 +55,10 @@ public class KnowledgeRetrievalNodeSection implements NodeSection<KnowledgeRetri
 
 	private final String studioStoragePath;
 
-	public KnowledgeRetrievalNodeSection(DocumentService studioDocumentService, StudioProperties properties) {
+	public KnowledgeRetrievalNodeSection(@Autowired(required = false) DocumentService studioDocumentService,
+			@Autowired(required = false) StudioProperties properties) {
 		this.studioDocumentService = studioDocumentService;
-		this.studioStoragePath = properties.getStoragePath();
+		this.studioStoragePath = properties != null ? properties.getStoragePath() : null;
 	}
 
 	@Override
@@ -64,6 +66,10 @@ public class KnowledgeRetrievalNodeSection implements NodeSection<KnowledgeRetri
 		KnowledgeRetrievalNodeData nodeData = (KnowledgeRetrievalNodeData) node.getData();
 
 		if (DSLDialectType.STUDIO.equals(nodeData.getDialectType())) {
+			if (this.studioDocumentService == null || this.studioStoragePath == null) {
+				throw new IllegalArgumentException(
+						"The current mode does not support Studio's knowledge retrieval node code generation. Please start the complete StudioApplication class");
+			}
 			// 根据knowledgeBaseIds获取对应的资源文件
 			List<ResourceFile> resourceFiles = Optional.ofNullable(nodeData.getKnowledgeBaseIds())
 				.orElse(List.of())
@@ -131,7 +137,7 @@ public class KnowledgeRetrievalNodeSection implements NodeSection<KnowledgeRetri
 		}
 
 		return String.format("""
-				// —— KnowledgeRetrievalNode [%s] ——%n
+				// —— KnowledgeRetrievalNode [%s] ——
 				KnowledgeRetrievalNode %s = KnowledgeRetrievalNode.builder()
 				    .topK(%s)
 				    .similarityThreshold(%s)
@@ -140,6 +146,7 @@ public class KnowledgeRetrievalNodeSection implements NodeSection<KnowledgeRetri
 				    .vectorStore(createVectorStore(%s))
 				    .build();
 				stateGraph.addNode("%s", AsyncNodeAction.node_async(wrapperRetrievalNodeAction(%s, "%s")));
+
 				""", node.getId(), varName, ObjectToCodeUtil.toCode(nodeData.getTopK()),
 				ObjectToCodeUtil.toCode(nodeData.getThreshold()), ObjectToCodeUtil.toCode(nodeData.getInputKey()),
 				ObjectToCodeUtil.toCode(nodeData.getOutputKey()),
@@ -231,6 +238,18 @@ public class KnowledgeRetrievalNodeSection implements NodeSection<KnowledgeRetri
 	public List<ResourceFile> resourceFiles(DSLDialectType dialectType, KnowledgeRetrievalNodeData nodeData) {
 		return Optional.ofNullable(nodeData.getResourceFiles())
 			.orElse(NodeSection.super.resourceFiles(dialectType, nodeData));
+	}
+
+	@Override
+	public List<String> getImports() {
+		return List.of("com.alibaba.cloud.ai.graph.node.KnowledgeRetrievalNode",
+				"org.springframework.ai.embedding.EmbeddingModel", "org.springframework.ai.reader.TextReader",
+				"org.springframework.ai.transformer.splitter.TokenTextSplitter",
+				"org.springframework.ai.vectorstore.SimpleVectorStore",
+				"org.springframework.ai.vectorstore.VectorStore", "org.springframework.beans.factory.annotation.Value",
+				"org.springframework.core.io.Resource", "org.springframework.ai.document.Document",
+				"org.springframework.beans.factory.annotation.Autowired", "org.springframework.core.io.ResourceLoader",
+				"java.util.Optional");
 	}
 
 }
