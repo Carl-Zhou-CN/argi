@@ -15,13 +15,13 @@
  */
 package com.alibaba.cloud.ai.example.manus.tool;
 
+import com.alibaba.cloud.ai.example.manus.agent.BaseAgent;
 import com.alibaba.cloud.ai.example.manus.service.ChromeDriverService;
 import com.alibaba.cloud.ai.example.manus.tool.support.ToolExecuteResult;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.TypeReference;
 
 import org.openqa.selenium.*;
-import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,30 +30,32 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.ArrayList;
 
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.openai.api.OpenAiApi;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 
-public class BrowserUseTool implements Function<String, ToolExecuteResult> {
+public class BrowserUseTool implements ToolCallBiFunctionDef {
 
 	private static final Logger log = LoggerFactory.getLogger(BrowserUseTool.class);
 
 	private final ChromeDriverService chromeDriverService;
 
-	private static BrowserUseTool instance;
+	// 添加标签页缓存字段
+	private List<Map<String, Object>> cachedTabs;
+
+	private BaseAgent agent;
 
 	public BrowserUseTool(ChromeDriverService chromeDriverService) {
 		this.chromeDriverService = chromeDriverService;
 	}
 
 	private WebDriver getDriver() {
-		return chromeDriverService.getDriver();
+		return chromeDriverService.getDriver(agent.getPlanId());
 	}
 
 	private static final int MAX_LENGTH = 20000;
@@ -166,9 +168,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 	}
 
 	public static synchronized BrowserUseTool getInstance(ChromeDriverService chromeDriverService) {
-		if (instance == null) {
-			instance = new BrowserUseTool(chromeDriverService);
-		}
+		BrowserUseTool instance = new BrowserUseTool(chromeDriverService);
 		return instance;
 	}
 
@@ -185,7 +185,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 		try {
 
 			// 添加随机延迟
-			Thread.sleep(new Random().nextInt(1000) + 500);
+			Thread.sleep(new Random().nextInt(500) + 200);
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
@@ -254,6 +254,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 						return new ToolExecuteResult("URL is required for 'navigate' action");
 					}
 					driver.get(url);
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Navigated to " + url);
 
 				case "click":
@@ -295,6 +296,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 							// 切换到新窗口
 							driver.switchTo().window(newHandle);
 							log.info("New tab detected, switched to: {}", driver.getCurrentUrl());
+							refreshTabsInfo(driver); // 刷新标签页信息
 							return new ToolExecuteResult(
 									"Clicked element and opened in new tab: " + driver.getCurrentUrl());
 						}
@@ -303,9 +305,10 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 						boolean urlChanged = wait.until(d -> !d.getCurrentUrl().equals(currentUrl));
 						if (urlChanged) {
 							log.info("Page navigated to: {}", driver.getCurrentUrl());
+							refreshTabsInfo(driver); // 刷新标签页信息
 							return new ToolExecuteResult("Clicked element and navigated to: " + driver.getCurrentUrl());
 						}
-
+						refreshTabsInfo(driver); // 刷新标签页信息
 						// 如果没有明显变化，返回普通点击成功消息
 						return new ToolExecuteResult("Clicked element at index " + index);
 
@@ -331,6 +334,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 						return new ToolExecuteResult("Element at index " + index + " is not an input element");
 					}
 					typeWithHumanDelay(inputElement, text);
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Successfully input '" + text + "' into element at index " + index);
 
 				case "key_enter":
@@ -342,6 +346,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 					}
 					WebElement enterElement = interactiveElements.get(index);
 					enterElement.sendKeys(Keys.RETURN);
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Hit the enter key at index " + index);
 
 				case "screenshot":
@@ -367,7 +372,9 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 					}
 					JavascriptExecutor jsExecutor = (JavascriptExecutor) driver;
 					Object result = jsExecutor.executeScript(script);
+					refreshTabsInfo(driver); // 刷新标签页信息
 					if (result == null) {
+
 						return new ToolExecuteResult("Successfully executed JavaScript code.");
 					}
 					else {
@@ -386,10 +393,12 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 						return new ToolExecuteResult("URL is required for 'new_tab' action");
 					}
 					((JavascriptExecutor) driver).executeScript("window.open('" + url + "', '_blank');");
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Opened new tab with URL " + url);
 
 				case "close_tab":
 					driver.close();
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Closed current tab");
 
 				case "switch_tab":
@@ -398,6 +407,7 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 					}
 					Object[] windowHandles = driver.getWindowHandles().toArray();
 					driver.switchTo().window(windowHandles[tabId].toString());
+					refreshTabsInfo(driver); // 刷新标签页信息
 					return new ToolExecuteResult("Switched to tab " + tabId);
 
 				case "refresh":
@@ -429,38 +439,45 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 		}
 	}
 
-	private static final String INTERACTIVE_ELEMENTS_SELECTOR = "a, button, input, select, textarea, [role='button'], [role='link']";
+	private static final String INTERACTIVE_ELEMENTS_SELECTOR = "a, button, input, select, textarea[type='search'], textarea, [role='button'], [role='link'], [role='textbox'], [role='search'], [role='searchbox']";
 
 	private String formatElementInfo(int index, WebElement element) {
 		try {
+			if (!isElementVisible(element)) {
+				return ""; // 如果元素不可见，直接返回空字符串
+			}
+
 			JavascriptExecutor js = (JavascriptExecutor) getDriver();
 			@SuppressWarnings("unchecked")
-			// 为了提速 getAttribute做多了太慢了
 			Map<String, Object> props = (Map<String, Object>) js.executeScript("""
 					function getElementInfo(el) {
-					    const style = window.getComputedStyle(el);
-					    return {
-					        tagName: el.tagName.toLowerCase(),
-					        type: el.getAttribute('type'),
-					        role: el.getAttribute('role'),
-					        text: el.textContent.trim(),
-					        value: el.value,
-					        placeholder: el.getAttribute('placeholder'),
-					        name: el.getAttribute('name'),
-					        id: el.getAttribute('id'),
-					        'aria-label': el.getAttribute('aria-label'),
-					        isVisible: (
-					            el.offsetWidth > 0 &&
-					            el.offsetHeight > 0 &&
-					            style.visibility !== 'hidden' &&
-					            style.display !== 'none'
-					        )
-					    };
+					    try {
+					        const style = window.getComputedStyle(el);
+					        return {
+					            tagName: el.tagName.toLowerCase(),
+					            type: el.getAttribute('type'),
+					            role: el.getAttribute('role'),
+					            text: el.textContent.trim(),
+					            value: el.value,
+					            placeholder: el.getAttribute('placeholder'),
+					            name: el.getAttribute('name'),
+					            id: el.getAttribute('id'),
+					            'aria-label': el.getAttribute('aria-label'),
+					            isVisible: (
+					                el.offsetWidth > 0 &&
+					                el.offsetHeight > 0 &&
+					                style.visibility !== 'hidden' &&
+					                style.display !== 'none'
+					            )
+					        };
+					    } catch(e) {
+					        return null; // 如果获取元素信息失败，返回null
+					    }
 					}
 					return getElementInfo(arguments[0]);
 					""", element);
 
-			if (!(Boolean) props.get("isVisible")) {
+			if (props == null || !(Boolean) props.get("isVisible")) {
 				return "";
 			}
 
@@ -497,18 +514,50 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 			return String.format("[%d] <%s%s>%s</%s>\n", index, tagName, attributes.toString(), text, tagName);
 
 		}
+		catch (StaleElementReferenceException | NoSuchElementException e) {
+			log.debug("忽略过期或不存在的元素: {}", e.getMessage());
+			return "";
+		}
 		catch (Exception e) {
-			log.warn("格式化元素信息失败 ,应该是页面某些元素过期了， 跳过当前元素格式化: {}", e.getMessage());
+			log.warn("格式化元素信息失败，跳过当前元素: {}", e.getMessage());
 			return "";
 		}
 	}
 
 	// 添加新的方法获取可交互元素
+	private boolean isElementVisible(WebElement element) {
+		try {
+			return element.isDisplayed() && element.isEnabled();
+		}
+		catch (StaleElementReferenceException | NoSuchElementException e) {
+			// 忽略过期或不存在的元素
+			log.debug("忽略过期或不存在的元素: {}", e.getMessage());
+			return false;
+		}
+	}
+
 	private List<WebElement> getInteractiveElements(WebDriver driver) {
-		return driver.findElements(By.cssSelector(INTERACTIVE_ELEMENTS_SELECTOR))
-			.stream()
-			.filter(this::isElementVisible)
-			.collect(Collectors.toList());
+		try {
+			return driver.findElements(By.cssSelector(INTERACTIVE_ELEMENTS_SELECTOR))
+				.stream()
+				.filter(this::isElementVisible)
+				.collect(Collectors.toList());
+		}
+		catch (StaleElementReferenceException e) {
+			log.warn("元素在获取过程中过期，重试一次: {}", e.getMessage());
+			// 如果发生异常，等待一下然后重试
+			try {
+				Thread.sleep(500);
+				return driver.findElements(By.cssSelector(INTERACTIVE_ELEMENTS_SELECTOR))
+					.stream()
+					.filter(this::isElementVisible)
+					.collect(Collectors.toList());
+			}
+			catch (Exception retryEx) {
+				log.error("重试获取元素失败: {}", retryEx.getMessage());
+				return new ArrayList<>(); // 返回空列表而不是抛出异常
+			}
+		}
 	}
 
 	private String getInteractiveElementsInfo(WebDriver driver) {
@@ -523,6 +572,32 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 		}
 
 		return resultInfo.toString();
+	}
+
+	private List<Map<String, Object>> getTabsInfo(WebDriver driver) {
+		if (cachedTabs != null) {
+			return cachedTabs;
+		}
+		return refreshTabsInfo(driver);
+	}
+
+	/**
+	 * 这个方法是为了让getCurrentStatus 不会刷新页面，减少在Mac上主动唤起的次数 否则太烦了 ， 每个step要调起这个东西两次。 都会强制把 页面唤起到
+	 * active啥事都没办法干了。
+	 * @param driver
+	 * @return
+	 */
+	private List<Map<String, Object>> refreshTabsInfo(WebDriver driver) {
+		Set<String> windowHandles = driver.getWindowHandles();
+		List<Map<String, Object>> tabs = new ArrayList<>();
+		String currentHandle = driver.getWindowHandle();
+		for (String handle : windowHandles) {
+			driver.switchTo().window(handle);
+			tabs.add(Map.of("url", driver.getCurrentUrl(), "title", driver.getTitle(), "id", handle));
+		}
+		driver.switchTo().window(currentHandle); // 切回原始标签页
+		this.cachedTabs = tabs;
+		return tabs;
 	}
 
 	public Map<String, Object> getCurrentState() {
@@ -540,14 +615,8 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 			state.put("title", title);
 
 			// 获取标签页信息
-			Set<String> windowHandles = driver.getWindowHandles();
-			List<Map<String, Object>> tabs = new ArrayList<>();
-			String currentHandle = driver.getWindowHandle();
-			for (String handle : windowHandles) {
-				driver.switchTo().window(handle);
-				tabs.add(Map.of("url", driver.getCurrentUrl(), "title", driver.getTitle(), "id", handle));
-			}
-			driver.switchTo().window(currentHandle); // 切回原始标签页
+
+			List<Map<String, Object>> tabs = getTabsInfo(driver);
 			state.put("tabs", tabs);
 
 			// 获取viewport和滚动信息
@@ -586,18 +655,93 @@ public class BrowserUseTool implements Function<String, ToolExecuteResult> {
 		}
 	}
 
-	private boolean isElementVisible(WebElement element) {
-		try {
-			return element.isDisplayed() && element.isEnabled();
-		}
-		catch (NoSuchElementException e) {
-			return false;
-		}
+	@Override
+	public ToolExecuteResult apply(String t, ToolContext u) {
+
+		return run(t);
 	}
 
 	@Override
-	public ToolExecuteResult apply(String s) {
-		return run(s);
+	public String getName() {
+		return name;
+	}
+
+	@Override
+	public String getDescription() {
+		return description;
+	}
+
+	@Override
+	public String getParameters() {
+		return PARAMETERS;
+	}
+
+	@Override
+	public Class<?> getInputType() {
+		return String.class;
+	}
+
+	@Override
+	public boolean isReturnDirect() {
+		return false;
+	}
+
+	@Override
+	public void setAgent(BaseAgent agent) {
+		this.agent = agent;
+	}
+
+	public BaseAgent getAgent() {
+		return this.agent;
+	}
+
+	@Override
+	public String getCurrentToolStateString() {
+		Map<String, Object> state = getCurrentState();
+
+		// 构建URL和标题信息
+		String urlInfo = String.format("\n   URL: %s\n   Title: %s", state.get("url"), state.get("title"));
+
+		// 构建标签页信息
+		@SuppressWarnings("unchecked")
+		List<Map<String, Object>> tabs = (List<Map<String, Object>>) state.get("tabs");
+		String tabsInfo = (tabs != null) ? String.format("\n   %d tab(s) available", tabs.size()) : "";
+
+		// 获取滚动信息
+		@SuppressWarnings("unchecked")
+		Map<String, Object> scrollInfo = (Map<String, Object>) state.get("scroll_info");
+		String contentAbove = "";
+		String contentBelow = "";
+		if (scrollInfo != null) {
+			Long pixelsAbove = (Long) scrollInfo.get("pixels_above");
+			Long pixelsBelow = (Long) scrollInfo.get("pixels_below");
+			contentAbove = pixelsAbove > 0 ? String.format(" (%d pixels)", pixelsAbove) : "";
+			contentBelow = pixelsBelow > 0 ? String.format(" (%d pixels)", pixelsBelow) : "";
+		}
+
+		// 获取交互元素信息
+		String elementsInfo = (String) state.get("interactive_elements");
+
+		// 构建最终的状态字符串
+		String retString = String.format("""
+				When you see [Current state starts here], focus on the following:
+				- Current URL and page title:
+				%s
+
+				- Available tabs:
+				%s
+
+				- Interactive elements and their indices:
+				%s
+
+				- Content above%s or below%s the viewport (if indicated)
+
+				- Any action results or errors:
+				%s
+				""", urlInfo, tabsInfo, elementsInfo != null ? elementsInfo : "", contentAbove, contentBelow,
+				state.containsKey("error") ? state.get("error") : "");
+
+		return retString;
 	}
 
 }
