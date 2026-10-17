@@ -33,7 +33,7 @@ import org.springframework.util.CollectionUtils;
 
 /**
  * @author nuocheng.lxm
- * @date 2024/8/6 15:42
+ * @since 2024/8/6 15:42
  */
 public class DashScopeCloudStore implements VectorStore {
 
@@ -95,7 +95,7 @@ public class DashScopeCloudStore implements VectorStore {
 			searchOption = new DashScopeDocumentRetrieverOptions();
 		}
 		searchOption.setRerankTopN(request.getTopK());
-        return dashScopeApi.retriever(pipelineId, request.query, searchOption);
+		return dashScopeApi.retriever(pipelineId, request.query, searchOption);
 	}
 
 }

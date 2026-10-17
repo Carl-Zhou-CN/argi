@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 the original author or authors.
+ * Copyright 2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import java.util.*;
 /**
  * @author yuluo
  * @author <a href="mailto:yuluo08290126@gmail.com">yuluo</a>
- * @since 2023.0.1.0
+ * @since 1.0.0-M2
  */
 
 public class DashScopeAgentOptions implements ChatOptions {
@@ -48,7 +48,7 @@ public class DashScopeAgentOptions implements ChatOptions {
 	}
 
 	@Override
-	public Float getFrequencyPenalty() {
+	public Double getFrequencyPenalty() {
 		return null;
 	}
 
@@ -58,7 +58,7 @@ public class DashScopeAgentOptions implements ChatOptions {
 	}
 
 	@Override
-	public Float getPresencePenalty() {
+	public Double getPresencePenalty() {
 		return null;
 	}
 
@@ -68,13 +68,13 @@ public class DashScopeAgentOptions implements ChatOptions {
 	}
 
 	@Override
-	public Float getTemperature() {
-		return 0f;
+	public Double getTemperature() {
+		return 0d;
 	}
 
 	@Override
-	public Float getTopP() {
-		return 0f;
+	public Double getTopP() {
+		return 0d;
 	}
 
 	@Override
